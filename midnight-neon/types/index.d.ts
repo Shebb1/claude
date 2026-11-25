@@ -27,6 +27,6 @@ export type FloorState = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'midnight-neon': { floor: Shaped<FloorState>; design: Shaped<string> }
+    'midnight-neon': { floor: Shaped<FloorState>; design: Shaped<string>; zoom: Shaped<number> }
   }
 }

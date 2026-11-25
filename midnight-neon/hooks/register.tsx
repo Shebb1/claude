@@ -3,7 +3,7 @@ import type { EngineInterface, Register, ThemeSetArgs } from 'claude-code'
 
 import type { FloorModel, FloorState, FloorWorker } from '../types'
 import { makeColors } from './make-colors.js'
-import { DEFAULT_DESIGN, DESIGNS, STATIONS, describeScene, renderScene } from './scene.js'
+import { ASPECT, DEFAULT_DESIGN, DESIGNS, STATIONS, describeScene, renderScene } from './scene.js'
 
 // Tag: helle, natürliche Claude-Farben (warmes Papier, Ton-Orange).
 // Abend: Mitternachtsblau/-lila mit Neon-Komplementärakzenten.
@@ -59,6 +59,14 @@ const EMPTY: FloorState = {
 
 const floor = atom({ plugin: 'midnight-neon', key: 'floor' } as const, EMPTY, { shape: 'floor-2' })
 const design = atom({ plugin: 'midnight-neon', key: 'design' } as const, DEFAULT_DESIGN, { shape: 'design-1' })
+// The drawing's size in percent of what the pane's cells suggest. The engine
+// gives a pane's size in text cells, not pixels: CELL_W and CELL_H are the
+// desktop's cell as measured, and this lets the person correct the rest.
+const ZOOMS = [50, 75, 100, 125, 150, 175, 200]
+const CELL_W = 8
+const CELL_H = 20
+const zoom = atom({ plugin: 'midnight-neon', key: 'zoom' } as const, 100, { shape: 'zoom-1' })
+const isZoom = (v: unknown): v is number => typeof v === 'number' && ZOOMS.includes(v)
 const isDesign = (v: unknown): v is string => typeof v === 'string' && DESIGNS.some(d => d.k === v)
 
 const family = (model: string): FloorModel => {
@@ -118,6 +126,11 @@ export const register: Register = on => {
 
       if (isDesign(stored)) {
         await update($, design, () => stored)
+      }
+      const size = await $.store.get('zoom')
+
+      if (isZoom(size)) {
+        await update($, zoom, () => size)
       }
     } catch (error) {
       $.ui.log(`midnight-neon design: ${String(error)}`)
@@ -256,6 +269,8 @@ export const register: Register = on => {
     const state = await read($, floor)
     const chosen = await read($, design)
     const current = isDesign(chosen) ? chosen : DEFAULT_DESIGN
+    const sized = await read($, zoom)
+    const percent = isZoom(sized) ? sized : 100
     const { Box, Select, Text } = $.ui.resolve(e)
     const picker = (
       <Select
@@ -274,14 +289,33 @@ export const register: Register = on => {
 
     if (e.surface === 'desktop' || e.surface === 'mobile') {
       const { Svg } = $.ui.resolve(e)
+      // Fit the pane: as wide as its cells say, no taller than its room, then the person's percent.
+      const cols = e.props.bodyColumns
+      const rows = e.props.scroll.bodyRows
+      const fit = Math.min(cols * CELL_W, rows * CELL_H * ASPECT)
+      const width = Math.max(160, Math.round((fit * percent) / 100))
+      const height = Math.round(width / ASPECT)
 
       // The hall fills the pane's width at its own proportions; the design
       // picker sits on the drawing, the log is drawn into it.
       return (
         <Box flexDirection="column" position="relative">
-          <Svg source={renderScene(state, current)} alt={describeScene(state)} isInteractive />
-          <Box position="absolute" top={0} left={1}>
+          <Svg source={renderScene(state, current, `${cols}×${rows}`)} alt={describeScene(state)} width={width} height={height} isInteractive />
+          <Box position="absolute" top={0} left={1} flexDirection="row" gap={1}>
             {picker}
+            <Select
+              key="zoom"
+              label="Größe"
+              options={ZOOMS.map(z => ({ value: String(z), label: `${z} %` }))}
+              value={String(percent)}
+              onSelect={v => {
+                const z = Number(v)
+
+                if (!isZoom(z)) return
+                void update($, zoom, () => z)
+                void $.store.set('zoom', z).catch(() => undefined)
+              }}
+            />
           </Box>
         </Box>
       )

@@ -649,6 +649,8 @@ export const DESIGNS = [
 },
 ]
 export const DEFAULT_DESIGN = 'claude'
+// Width over height of the drawing.
+export const ASPECT = VW / VH
 
 // The last log lines, drawn into the hall's bottom left corner.
 function logSvg(st, log) {
@@ -674,7 +676,7 @@ function activity(state) {
   return { active, counts }
 }
 
-export function renderScene(state, design) {
+export function renderScene(state, design, note = '') {
   const st = DESIGNS.find(d => d.k === design) || DESIGNS[0]
   SNAP = st.snap || 0
   try {
@@ -698,7 +700,7 @@ export function renderScene(state, design) {
       else items.push({ d: end.d - 0.3, x: end.x, svg })
     }
     items.sort((a, b) => b.d - a.d || a.x - b.x)
-    let out = `<svg viewBox="0 0 ${VW} ${VH}" width="${VW * 2}" height="${VH * 2}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"${st.snap ? ' shape-rendering="crispEdges"' : ''}>`
+    let out = `<svg viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"${st.snap ? ' shape-rendering="crispEdges"' : ''}>`
     out += `<defs>${baseDefs(k)}${st.defs ? st.defs(k) : ''}</defs>`
     out += st.bg(k) + st.floor(k)
     if (st.beltShadow) out += `<polygon points="${pts([...PATH.outer.map(q => P(q[0] + 0.15, q[1] - 0.1, 0)), ...PATH.inner.slice().reverse().map(q => P(q[0] + 0.15, q[1] - 0.1, 0))])}" fill="${st.beltShadow}" filter="url(#${k}-blur)"/>`
@@ -718,6 +720,7 @@ export function renderScene(state, design) {
     out += labelSvg(st, said, col, counts)
     if (st.overlay) out += st.overlay(k, state)
     out += logSvg(st, state.log) + headerSvg(st, state)
+    if (note) out += `<text x="${VW - 12}" y="${VH - 8}" text-anchor="end" font-size="11" fill="${st.label.fill}" opacity=".45" font-family="${st.font}">${esc(note)}</text>`
     return out + '</svg>'
   } finally {
     SNAP = 0
