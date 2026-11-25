@@ -285,10 +285,10 @@ function pkgSvg(st, pk, stamps, col) {
   return s
 }
 // The trip from one station to the next, as an animateMotion path relative to
-// the end point (the package is drawn where it ends).
+// where the package is drawn: its end point, or for the last ride its start.
 function trip(from, to, elapsed = 0) {
   if (from === to) return { svg: '', dur: 0 }
-  const s0 = sAt(from), s1 = sAt(to), e = at(s1), end = P(e.x, e.d)
+  const s0 = sAt(from), s1 = sAt(to), e = at(to > 5 ? s0 : s1), end = P(e.x, e.d)
   const rel = s => { const q = at(s), a = P(q.x, q.d); return r1(a[0] - end[0]) + ' ' + r1(a[1] - end[1]) }
   const run = (a, b) => { const l = []; for (let s = a; s < b; s += 0.4) l.push(rel(s)); l.push(rel(b)); return 'M' + l.join(' L') }
   // Forward along the belt. A station behind is reached the long way round:
@@ -301,8 +301,11 @@ function trip(from, to, elapsed = 0) {
     // The last ride starts when the answer lands, and the app shows that frame
     // late: timed by the clock it would open near the end and seem to jump. So
     // it starts when it is shown, rests a moment at the station, then rolls out.
-    const hold = 0.7, total = hold + Math.max(2.5, len / 2.2)
-    return { dur: total, final: true, svg: `<animateMotion begin="0s" dur="${total.toFixed(2)}s" fill="freeze" calcMode="linear" keyPoints="0;0;1" keyTimes="0;${(hold / total).toFixed(3)};1" path="${path}"/>` }
+    // The package is drawn at the station and the path leads away from it: the
+    // rest is a plain delayed begin. (keyPoints and keyTimes would say the same,
+    // but the app's frame holds them at the first point and jumps at the end.)
+    const hold = 0.7, ride = Math.max(2.5, len / 2.2)
+    return { dur: hold + ride, final: true, at: { x: e.x, d: e.d }, svg: `<animateMotion begin="${hold}s" dur="${ride.toFixed(2)}s" fill="freeze" calcMode="paced" path="${path}"/>` }
   }
   const dur = Math.max(0.8, Math.min(4.5, len / 3.2))
   // A negative begin resumes a trip already under way: a redraw never restarts it.
@@ -718,7 +721,7 @@ export function renderScene(state, design, note = '', mode = '', now = 0) {
     // The last ride plays from its start whenever it is shown, for a minute.
     const live = state.moving && t.dur > 0 && elapsed < (t.final ? 60 : t.dur + 0.6)
     if (state.pkg >= 0 && (state.pkg <= 5 || live)) {
-      const end = state.pkg > 5 ? { x: XS, d: Y1 } : { x: ST[state.pkg].bx, d: ST[state.pkg].bd }
+      const end = state.pkg > 5 ? (t.at || { x: XS, d: Y1 }) : { x: ST[state.pkg].bx, d: ST[state.pkg].bd }
       let g = pkgSvg(st, end, state.stamps, col)
       if (live) g += t.svg
       if (state.pkg > 5) g += `<animate attributeName="opacity" from="1" to="0" begin="${(t.dur - 0.3).toFixed(2)}s" dur="0.5s" fill="freeze"/>`
