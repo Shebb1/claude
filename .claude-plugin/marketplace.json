@@ -1,0 +1,5 @@
+{
+  "name": "shebb1-claude",
+  "owner": { "name": "Shebb1" },
+  "plugins": [{ "name": "midnight-neon", "source": "./midnight-neon", "description": "Tagsüber helle Claude-Farben, abends Mitternachts-Neon, dazu die Live-Fabrikhalle 'Halle 3'." }]
+}
