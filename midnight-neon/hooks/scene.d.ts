@@ -1,4 +1,7 @@
 import type { FloorState } from '../types'
 
-export function renderScene(state: FloorState, options?: { mode?: 'auto' | 'light' | 'dark' }): string
+export const DESIGNS: ReadonlyArray<{ k: string; name: string }>
+export const DEFAULT_DESIGN: string
+export const STATIONS: ReadonlyArray<{ m: string; name: string; role: string }>
+export function renderScene(state: FloorState, design: string): string
 export function describeScene(state: FloorState): string

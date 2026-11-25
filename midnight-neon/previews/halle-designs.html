@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Halle 3: 10 Designs</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #121315; color: #e8e6e1; font: 15px/1.5 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; }
+  header { max-width: 1320px; margin: 0 auto; padding: 40px 24px 4px; }
+  h1 { font-size: 30px; margin: 0 0 8px; font-weight: 650; letter-spacing: -.015em; }
+  header p { margin: 0; color: #a7a49e; max-width: 72ch; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
+  .flow li { background: #1c1d20; border: 1px solid #2b2c31; border-radius: 999px; padding: 4px 12px; font-size: 13px; color: #c9c6bf; }
+  main { max-width: 1320px; margin: 0 auto; padding: 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(600px, 1fr)); gap: 24px; }
+  @media (max-width: 680px) { main { grid-template-columns: 1fr; padding: 16px; } }
+  .card { background: #1a1b1e; border: 1px solid #2a2b30; border-radius: 16px; overflow: hidden; transition: border-color .25s; }
+  .card:hover { border-color: #3b3c42; }
+  .card.sel { border-color: #ff9d3c; box-shadow: 0 0 0 1px #ff9d3c; }
+  .stage svg { display: block; width: 100%; height: auto; }
+  .meta { padding: 14px 16px 16px; display: grid; grid-template-columns: auto 1fr auto; gap: 2px 14px; align-items: center; }
+  .num { grid-row: 1 / 3; font-size: 30px; font-weight: 700; line-height: 1; color: #77746d; font-variant-numeric: tabular-nums; }
+  .name { font-weight: 650; font-size: 17px; }
+  .desc { color: #a7a49e; font-size: 13.5px; grid-column: 2; }
+  button { grid-row: 1 / 3; grid-column: 3; background: #26272b; color: #e8e6e1; border: 1px solid #3a3b41; border-radius: 999px; padding: 8px 16px; font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap; transition: transform .15s; }
+  button:hover { background: #2f3035; }
+  button:active { transform: scale(.97); }
+  .card.sel button { background: #ff9d3c; color: #23140a; border-color: #ff9d3c; }
+  #pick { position: sticky; bottom: 16px; margin: 0 auto 24px; width: max-content; max-width: calc(100% - 32px); background: #ff9d3c; color: #23140a; font-weight: 650; padding: 10px 18px; border-radius: 999px; display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Halle 3: zehn Designs</h1>
+  <p>Gleicher Ablauf, zehn Looks. Der Auftrag startet am Chat, fährt unten nach rechts, biegt links ab nach oben, oben wieder links und kommt fertig zum Chat zurück. Alle Figuren stehen fest.</p>
+  <ul class="flow">
+    <li>Chat: Auftrag aufs Band</li><li>Fable + Opus planen</li><li>Orchestrator verteilt</li>
+    <li>Haiku: einfache Aufgaben</li><li>Sonnet: erster Entwurf</li><li>Opus: Überarbeitung</li>
+    <li>Fable: Sicherheit + Abnahme</li><li>Chat: Ergebnis</li>
+  </ul>
+</header>
+<main id="grid"></main>
+<div id="pick"></div>
+<script>
+const S = 46, OX = 92, OY = 505, KX = 0.42, KD = 0.5, VW = 960, VH = 560;
+let SNAP = 0;
+function P(x, d, z = 0) {
+  let sx = OX + x * S + d * S * KX, sy = OY - d * S * KD - z * S;
+  if (SNAP) { sx = Math.round(sx / SNAP) * SNAP; sy = Math.round(sy / SNAP) * SNAP; }
+  return [sx, sy];
+}
+const r1 = n => Math.round(n * 10) / 10;
+const pts = a => a.map(p => r1(p[0]) + ',' + r1(p[1])).join(' ');
+function attrs(o) {
+  let s = '';
+  if (o.stroke) s += ` stroke="${o.stroke}" stroke-width="${o.sw || 1}" stroke-linejoin="round"`;
+  if (o.op != null) s += ` opacity="${o.op}"`;
+  if (o.filter) s += ` filter="url(#${o.filter})"`;
+  return s;
+}
+const poly = (a, fill, o = {}) => `<polygon points="${pts(a)}" fill="${fill}"${attrs(o)}/>`;
+const line = (a, b, c, w = 1, extra = '') => `<line x1="${r1(a[0])}" y1="${r1(a[1])}" x2="${r1(b[0])}" y2="${r1(b[1])}" stroke="${c}" stroke-width="${w}" stroke-linecap="round"${extra}/>`;
+function rgb(h) { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h.slice(0, 6), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function shade(h, f) {
+  if (!h || h[0] !== '#') return h;
+  const m = v => Math.max(0, Math.min(255, Math.round(f >= 0 ? v + (255 - v) * f : v * (1 + f))));
+  return '#' + rgb(h).map(m).map(v => v.toString(16).padStart(2, '0')).join('');
+}
+function box(x, d, z, w, dd, h, c, o = {}) {
+  const col = typeof c === 'string' ? { top: shade(c, .14), front: shade(c, -.1), side: shade(c, -.3) } : c;
+  const A = P(x, d, z), B = P(x + w, d, z), C = P(x + w, d + dd, z);
+  const At = P(x, d, z + h), Bt = P(x + w, d, z + h), Ct = P(x + w, d + dd, z + h), Dt = P(x, d + dd, z + h);
+  return poly([A, B, Bt, At], col.front, o) + poly([B, C, Ct, Bt], col.side, o) + poly([At, Bt, Ct, Dt], col.top, o);
+}
+const cbox = (x, d, z, w, dd, h, c, o) => box(x - w / 2, d - dd / 2, z, w, dd, h, c, o);
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
+const XS = 0.42, Y0 = 0.9, Y1 = 6.4, XR = 11, RR = 0.9, HW = 0.45;
+const PATH = (() => {
+  const p = [];
+  const seg = (a, b) => { const n = Math.max(2, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.1)); for (let i = 0; i < n; i++) { const t = i / n; p.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); } };
+  const arc = (cx, cy, a0, a1) => { for (let i = 0; i < 14; i++) { const a = a0 + (a1 - a0) * i / 14; p.push([cx + RR * Math.cos(a), cy + RR * Math.sin(a)]); } };
+  seg([XS, Y0], [XR - RR, Y0]); arc(XR - RR, Y0 + RR, -Math.PI / 2, 0);
+  seg([XR, Y0 + RR], [XR, Y1 - RR]); arc(XR - RR, Y1 - RR, 0, Math.PI / 2);
+  seg([XR - RR, Y1], [XS, Y1]); p.push([XS, Y1]);
+  const s = [0]; for (let i = 1; i < p.length; i++) s.push(s[i - 1] + Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]));
+  const tan = p.map((q, i) => { const a = p[Math.max(0, i - 1)], b = p[Math.min(p.length - 1, i + 1)]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; });
+  const inner = p.map((q, i) => [q[0] - tan[i][1] * HW, q[1] + tan[i][0] * HW]);
+  const outer = p.map((q, i) => [q[0] + tan[i][1] * HW, q[1] - tan[i][0] * HW]);
+  return { p, s, tan, inner, outer, L: s[s.length - 1] };
+})();
+function at(s) {
+  s = Math.max(0, Math.min(PATH.L, s));
+  let i = 0; while (i < PATH.s.length - 2 && PATH.s[i + 1] < s) i++;
+  const u = (s - PATH.s[i]) / ((PATH.s[i + 1] - PATH.s[i]) || 1);
+  const a = PATH.p[i], b = PATH.p[i + 1];
+  return { x: a[0] + (b[0] - a[0]) * u, d: a[1] + (b[1] - a[1]) * u, i, u };
+}
+function nearestS(x, d) { let best = 1e9, bs = 0; PATH.p.forEach((q, i) => { const v = (q[0] - x) ** 2 + (q[1] - d) ** 2; if (v < best) { best = v; bs = PATH.s[i]; } }); return bs; }
+
+const ST = [
+  { m: 'fable', name: 'Fable', role: 'plant den Auftrag', x: 3.9, d: -0.55 },
+  { m: 'opus', name: 'Opus', role: 'plant mit', x: 6.1, d: -0.55 },
+  { m: 'haiku', name: 'Haiku', role: 'einfache Aufgaben', x: 12.35, d: 2.25 },
+  { m: 'sonnet', name: 'Sonnet', role: 'erster Entwurf', x: 12.35, d: 3.65 },
+  { m: 'opus', name: 'Opus', role: 'überarbeitet', x: 12.35, d: 5.05 },
+  { m: 'fable', name: 'Fable', role: 'Sicherheit + Abnahme', x: 7.6, d: 7.55 },
+];
+const ORCH = { m: 'orch', name: 'Orchestrator', role: 'verteilt', x: 5.0, d: 3.55, scale: 1.3, orch: true };
+ST.forEach(F => { F.s = nearestS(F.x, F.d); const q = at(F.s); F.bx = q.x; F.bd = q.d; });
+ORCH.bx = 5; ORCH.bd = 0.9;
+const MC = { fable: '#e2a93b', opus: '#d9683f', sonnet: '#4f7be0', haiku: '#3fae7c', orch: '#8f74d6' };
+
+const SPEED = 2.3, PAUSE = 1.1;
+const TL = []; let CYCLE = 0;
+(() => {
+  let t = 0, s = 0;
+  TL.push({ k: 'spawn', t0: 0, dur: .9 }); t = .9;
+  for (const F of [...ST].sort((a, b) => a.s - b.s)) {
+    TL.push({ k: 'move', t0: t, dur: (F.s - s) / SPEED, s0: s, s1: F.s }); t += (F.s - s) / SPEED;
+    TL.push({ k: 'pause', t0: t, dur: PAUSE, s: F.s, F }); t += PAUSE; s = F.s;
+  }
+  TL.push({ k: 'move', t0: t, dur: (PATH.L - s) / SPEED, s0: s, s1: PATH.L }); t += (PATH.L - s) / SPEED;
+  TL.push({ k: 'end', t0: t, dur: 1.8 }); t += 1.8;
+  CYCLE = t;
+})();
+const ease = u => u * u * (3 - 2 * u);
+function state(time) {
+  const tt = time % CYCLE, cycle = Math.floor(time / CYCLE);
+  const g = TL.find(x => tt >= x.t0 && tt < x.t0 + x.dur) || TL[TL.length - 1];
+  const u = Math.min(1, (tt - g.t0) / g.dur);
+  let s = 0, active = null, pk = null;
+  if (g.k === 'spawn') { s = 0; pk = { x: XS - .5 * (1 - u), d: Y0, a: Math.min(1, u * 1.6), h: .4 + .6 * u }; }
+  else if (g.k === 'end') { s = PATH.L; const v = Math.min(1, u * 2); pk = v < 1 ? { x: XS - .55 * v, d: Y1, a: 1 - v, h: 1 } : null; }
+  else { s = g.k === 'move' ? g.s0 + (g.s1 - g.s0) * ease(u) : g.s; if (g.k === 'pause') active = g.F; const q = at(s); pk = { x: q.x, d: q.d, a: 1, h: 1 }; }
+  const passed = ST.filter(F => F.s < s - .01 || (active === F && u > .5));
+  return { s, active, pk, passed, phase: g.k, u, cycle, time };
+}
+
+function beltItems(st, off) {
+  const b = st.belt, zt = .55, zb = b.zb ?? .2, items = [], N = PATH.p.length, step = 4;
+  const o = { stroke: b.stroke, sw: b.sw, filter: b.filter ? st.k + '-' + b.filter : null };
+  for (let i = 0; i < N - 1; i += step) {
+    const j = Math.min(i + step, N - 1), m = (i + j) >> 1;
+    const tn = PATH.tan[m];
+    let s = '';
+    for (const [E, sign] of [[PATH.outer, 1], [PATH.inner, -1]]) {
+      const nx = tn[1] * sign, nd = -tn[0] * sign;
+      if (nx * .6 - nd > .05) {
+        const e = E.slice(i, j + 1);
+        s += poly([...e.map(q => P(q[0], q[1], zb)), ...e.slice().reverse().map(q => P(q[0], q[1], zt))], b.side, o);
+      }
+    }
+    const top = [...PATH.outer.slice(i, j + 1).map(q => P(q[0], q[1], zt)), ...PATH.inner.slice(i, j + 1).reverse().map(q => P(q[0], q[1], zt))];
+    s += poly(top, b.top, o);
+    if (b.stripe) {
+      const gap = b.gap || .3, s0 = PATH.s[i], s1 = PATH.s[j], ph = off % gap;
+      for (let k = Math.floor((s0 - ph) / gap); k * gap + ph <= s1; k++) {
+        const ss = k * gap + ph; if (ss < s0) continue;
+        const q = at(ss), a = PATH.inner[q.i], c = PATH.outer[q.i];
+        s += line(P(a[0], a[1], zt), P(c[0], c[1], zt), b.stripe, b.stripeW || 1.2);
+      }
+    }
+    if (b.rail) for (const E of [PATH.outer, PATH.inner]) s += `<polyline points="${pts(E.slice(i, j + 1).map(q => P(q[0], q[1], zt)))}" fill="none" stroke="${b.rail}" stroke-width="${b.railW || 1.5}"${b.railFilter ? ` filter="url(#${st.k}-${b.railFilter})"` : ''}/>`;
+    if (b.center) s += `<polyline points="${pts(PATH.p.slice(i, j + 1).map(q => P(q[0], q[1], zt)))}" fill="none" stroke="${b.center}" stroke-width="1" stroke-dasharray="7 4"/>`;
+    const avg = PATH.p.slice(i, j + 1).reduce((a, q) => [a[0] + q[0], a[1] + q[1]], [0, 0]);
+    items.push({ d: avg[1] / (j - i + 1), x: avg[0] / (j - i + 1), svg: s });
+  }
+  if (b.legs) for (let s = .6; s < PATH.L; s += 1.6) {
+    const q = at(s);
+    for (const E of [PATH.inner, PATH.outer]) { const e = E[q.i]; items.push({ d: e[1] + .05, x: e[0], svg: cbox(e[0], e[1], 0, .1, .1, zb, b.legs) }); }
+  }
+  return items;
+}
+
+function headTop(st, F) {
+  const sc = F.scale || 1, k = st.fig.kind;
+  if (k === 'robot') return F.orch ? 1.9 : 2.0;
+  if (k === 'capsule' || k === 'holo') return 1.62 * sc;
+  if (k === 'peg') return 1.42 * sc;
+  if (k === 'paper') return 1.38 * sc;
+  return 1.22 * sc;
+}
+function figure(st, F, col, act, t, pk) {
+  const fn = { block, robot, capsule, holo: capsule, voxel, paper, peg }[st.fig.kind];
+  let s = '';
+  if (st.shadow) { const B = P(F.x, F.d, 0); s += `<ellipse cx="${B[0]}" cy="${B[1]}" rx="${.46 * S * (F.scale || 1)}" ry="${.17 * S * (F.scale || 1)}" fill="${st.shadow}" filter="url(#${st.k}-blur)"/>`; }
+  if (act && st.activeUnder) s += st.activeUnder(st.k, F, P(F.x, F.d, 0), col, t);
+  if (F.orch && st.fig.kind !== 'robot') s += cbox(F.x, F.d - .8, 0, 1.2, .3, .55, st.console || '#55585f', st.consoleO || {});
+  return s + fn(st, F, col, act, t, pk);
+}
+function block(st, F, col, act, t) {
+  const sc = F.scale || 1, f = st.fig, lit = act && f.lit;
+  const o = { stroke: f.stroke === 'model' ? col : f.stroke, sw: f.sw, filter: f.filter ? st.k + '-' + f.filter : null };
+  const body = f.body === 'model' ? col : (lit ? shade(f.body, .35) : f.body), skin = lit ? shade(f.skin, .35) : f.skin;
+  let s = '';
+  s += cbox(F.x, F.d, 0, .46 * sc, .3 * sc, .74 * sc, body, o);
+  s += cbox(F.x, F.d, .76 * sc, .32 * sc, .32 * sc, .32 * sc, skin, o);
+  s += cbox(F.x, F.d, 1.08 * sc, .4 * sc, .4 * sc, .1 * sc, lit ? shade(col, .2) : col, { ...o, stroke: f.hatStroke ?? o.stroke });
+  return s;
+}
+function robot(st, F, col, act, t, pk) {
+  const k = st.k;
+  if (F.orch) {
+    let s = box(F.x - .8, F.d - .55, 0, 1.6, 1.1, 1.2, '#3a3e45');
+    s += poly([P(F.x - .7, F.d - .551, .55), P(F.x + .7, F.d - .551, .55), P(F.x + .7, F.d - .551, 1.1), P(F.x - .7, F.d - .551, 1.1)], '#9fd3ff', { op: .55 });
+    s += poly([P(F.x - .7, F.d - .552, .55), P(F.x - .2, F.d - .552, .55), P(F.x - .45, F.d - .552, 1.1), P(F.x - .7, F.d - .552, 1.1)], '#ffffff', { op: .25 });
+    const L = P(F.x, F.d, 1.35); s += line(P(F.x, F.d, 1.2), L, '#6d737b', 3);
+    s += `<circle cx="${L[0]}" cy="${L[1]}" r="5" fill="${act ? '#ffb547' : '#8a6a3a'}"${act ? ` filter="url(#${k}-glow)"` : ''}/>`;
+    return s;
+  }
+  const B = P(F.x, F.d, 0), rx = .34 * S, ry = rx * .45, hB = .22 * S;
+  let s = `<path d="M${B[0] - rx},${B[1]} a${rx},${ry} 0 0 0 ${2 * rx},0 v${-hB} a${rx},${ry} 0 0 0 ${-2 * rx},0 z" fill="#454a52"/>`;
+  s += `<ellipse cx="${B[0]}" cy="${B[1] - hB}" rx="${rx}" ry="${ry}" fill="#8f96a0"/>`;
+  s += `<ellipse cx="${B[0]}" cy="${B[1] - hB}" rx="${rx * .78}" ry="${ry * .78}" fill="none" stroke="${col}" stroke-width="3.5"/>`;
+  const sh = P(F.x, F.d, .95);
+  const sway = Math.sin(t * 1.2 + F.x) * .06;
+  const tg = act && pk ? P(pk.x, pk.d, 1.18) : P(F.x + (F.bx - F.x) * .5, F.d + (F.bd - F.d) * .5, 1.6 + sway);
+  const el = [(sh[0] + tg[0]) / 2 + (F.d < 0 ? -10 : 12), Math.min(sh[1], tg[1]) - .5 * S];
+  s += line([B[0], B[1] - hB], sh, '#9aa1ab', 13) + line(sh, el, '#c4cad1', 10) + line(el, tg, '#c4cad1', 8);
+  s += line(sh, el, col, 3);
+  for (const j of [sh, el]) s += `<circle cx="${j[0]}" cy="${j[1]}" r="7" fill="#2c3036" stroke="#cfd4da" stroke-width="2"/>`;
+  s += line(tg, [tg[0] - 6, tg[1] + 10], '#2c3036', 3.5) + line(tg, [tg[0] + 6, tg[1] + 10], '#2c3036', 3.5);
+  if (act) s += `<circle cx="${sh[0]}" cy="${sh[1] - 12}" r="4.5" fill="#ffb547" filter="url(#${k}-glow)" opacity="${(.6 + .4 * Math.sin(t * 9)).toFixed(2)}"/>`;
+  return s;
+}
+function capsule(st, F, col, act, t) {
+  const sc = F.scale || 1, holo = st.fig.kind === 'holo';
+  const lift = act && st.fig.bounce ? Math.abs(Math.sin(t * 6)) * .18 : 0;
+  const B = P(F.x, F.d, lift), bw = .3 * S * sc, bh = .5 * S * sc, hr = .27 * S * sc;
+  const cy = B[1] - bh, hy = B[1] - 2 * bh - hr * .75;
+  let s = '';
+  if (holo) {
+    s += `<ellipse cx="${B[0]}" cy="${cy}" rx="${bw}" ry="${bh}" fill="${col}" fill-opacity=".18" stroke="${col}" stroke-width="1.4"/>`;
+    s += `<circle cx="${B[0]}" cy="${hy}" r="${hr}" fill="${col}" fill-opacity=".14" stroke="${col}" stroke-width="1.4"/>`;
+    s += `<ellipse cx="${B[0]}" cy="${cy}" rx="${bw * .55}" ry="${bh * .8}" fill="none" stroke="${col}" stroke-opacity=".45" stroke-dasharray="2 3"/>`;
+    s += `<line x1="${B[0] - hr * .45}" y1="${hy}" x2="${B[0] + hr * .45}" y2="${hy}" stroke="${col}" stroke-width="2.4" stroke-linecap="round"/>`;
+    return `<g filter="url(#${st.k}-glow)">${s}</g>`;
+  }
+  s += `<ellipse cx="${B[0]}" cy="${cy}" rx="${bw}" ry="${bh}" fill="${col}"/>`;
+  s += `<ellipse cx="${B[0]}" cy="${cy}" rx="${bw}" ry="${bh}" fill="url(#${st.k}-shine)"/>`;
+  s += `<circle cx="${B[0]}" cy="${hy}" r="${hr}" fill="${st.fig.skin}"/>`;
+  s += `<circle cx="${B[0]}" cy="${hy}" r="${hr}" fill="url(#${st.k}-shine)"/>`;
+  s += `<path d="M${B[0] - hr * 1.02},${hy - hr * .2} a${hr * 1.02},${hr * .95} 0 0 1 ${hr * 2.04},0 z" fill="${shade(col, -.08)}"/>`;
+  const blink = (Math.sin(t * 1.7 + F.x * 3) > .97) ? .4 : 2.4;
+  s += `<ellipse cx="${B[0] - hr * .36}" cy="${hy + hr * .22}" rx="2.2" ry="${blink}" fill="#4a2f28"/><ellipse cx="${B[0] + hr * .36}" cy="${hy + hr * .22}" rx="2.2" ry="${blink}" fill="#4a2f28"/>`;
+  s += `<ellipse cx="${B[0] - hr * .6}" cy="${hy + hr * .55}" rx="4" ry="2.4" fill="#ff8f8f" opacity=".45"/><ellipse cx="${B[0] + hr * .6}" cy="${hy + hr * .55}" rx="4" ry="2.4" fill="#ff8f8f" opacity=".45"/>`;
+  return s;
+}
+function voxel(st, F, col, act, t) {
+  const sc = F.scale || 1, f = st.fig, o = { stroke: f.stroke, sw: f.sw };
+  const x = F.x, d = F.d, wave = act ? Math.abs(Math.sin(t * 7)) * .25 : 0;
+  let s = '';
+  s += cbox(x - .09 * sc, d, 0, .13 * sc, .15 * sc, .36 * sc, f.legs || '#3b4a7a', o) + cbox(x + .09 * sc, d, 0, .13 * sc, .15 * sc, .36 * sc, f.legs || '#3b4a7a', o);
+  s += cbox(x - .27 * sc, d, .38 * sc, .12 * sc, .14 * sc, .42 * sc, f.skin, o);
+  s += cbox(x, d, .36 * sc, .4 * sc, .24 * sc, .46 * sc, col, o);
+  s += cbox(x + .27 * sc, d, (.38 + wave) * sc, .12 * sc, .14 * sc, .42 * sc, f.skin, o);
+  s += cbox(x, d, .84 * sc, .34 * sc, .34 * sc, .34 * sc, f.skin, o);
+  for (const ex of [-.08, .08]) { const e = P(x + ex * sc, d - .171 * sc, 1.02 * sc); s += `<rect x="${e[0] - 2.5}" y="${e[1] - 2.5}" width="5" height="5" fill="#1d1b26"/>`; }
+  s += cbox(x, d, 1.18 * sc, .38 * sc, .38 * sc, .1 * sc, shade(col, -.2), o);
+  return s;
+}
+function paper(st, F, col, act, t) {
+  const sc = F.scale || 1, B = P(F.x, F.d, 0), w = .52 * S * sc, h = .8 * S * sc, hr = .21 * S * sc;
+  const lean = act ? Math.sin(t * 5) * 4 : 0;
+  let s = `<ellipse cx="${B[0]}" cy="${B[1]}" rx="${w * .62}" ry="${w * .16}" fill="#6d5a40" opacity=".22"/>`;
+  let g = `<path d="M${B[0] - w / 2},${B[1]} L${B[0] + w / 2},${B[1]} L${B[0] + w * .3},${B[1] - h} L${B[0] - w * .3},${B[1] - h} Z" fill="${col}"/>`;
+  g += `<path d="M${B[0]},${B[1]} L${B[0] + w * .3},${B[1] - h} L${B[0] + w / 2},${B[1]} Z" fill="#000" opacity=".08"/>`;
+  g += `<circle cx="${B[0]}" cy="${B[1] - h - hr * .95}" r="${hr}" fill="${st.fig.skin}"/>`;
+  g += `<path d="M${B[0] - hr * 1.15},${B[1] - h - hr * 1.3} L${B[0] + hr * 1.15},${B[1] - h - hr * 1.3} L${B[0]},${B[1] - h - hr * 2.7} Z" fill="${shade(col, -.25)}"/>`;
+  return s + `<g transform="rotate(${lean.toFixed(2)} ${B[0]} ${B[1]})" filter="url(#${st.k}-drop)">${g}</g>`;
+}
+function peg(st, F, col, act, t) {
+  const sc = F.scale || 1, B = P(F.x, F.d, 0), rw = .22 * S * sc, h = .78 * S * sc, hr = .21 * S * sc, k = st.k;
+  const rot = act ? Math.sin(t * 9) * 5 : 0;
+  let g = `<ellipse cx="${B[0]}" cy="${B[1]}" rx="${rw}" ry="${rw * .38}" fill="#a87a49"/>`;
+  g += `<rect x="${B[0] - rw}" y="${B[1] - h}" width="${2 * rw}" height="${h}" fill="url(#${k}-woodv)"/>`;
+  g += `<rect x="${B[0] - rw}" y="${B[1] - h * .62}" width="${2 * rw}" height="${h * .34}" fill="${col}"/>`;
+  g += `<ellipse cx="${B[0]}" cy="${B[1] - h * .28}" rx="${rw}" ry="${rw * .38}" fill="${shade(col, -.2)}"/>`;
+  g += `<ellipse cx="${B[0]}" cy="${B[1] - h}" rx="${rw}" ry="${rw * .38}" fill="#ecc994"/>`;
+  const hy = B[1] - h - hr * .8;
+  g += `<circle cx="${B[0]}" cy="${hy}" r="${hr}" fill="url(#${k}-ball)"/>`;
+  g += `<ellipse cx="${B[0]}" cy="${hy - hr * .7}" rx="${hr * .95}" ry="${hr * .38}" fill="${col}"/><rect x="${B[0] - hr * .5}" y="${hy - hr * 1.35}" width="${hr}" height="${hr * .6}" fill="${col}"/><ellipse cx="${B[0]}" cy="${hy - hr * 1.35}" rx="${hr * .5}" ry="${hr * .2}" fill="${shade(col, .2)}"/>`;
+  g += `<circle cx="${B[0] - hr * .33}" cy="${hy + hr * .1}" r="1.8" fill="#3b2a1c"/><circle cx="${B[0] + hr * .33}" cy="${hy + hr * .1}" r="1.8" fill="#3b2a1c"/><path d="M${B[0] - hr * .3},${hy + hr * .4} q${hr * .3},${hr * .3} ${hr * .6},0" stroke="#3b2a1c" stroke-width="1.4" fill="none"/>`;
+  return `<g transform="rotate(${rot.toFixed(2)} ${B[0]} ${B[1]})">${g}</g>`;
+}
+
+function pkgSvg(st, pk, passed, col) {
+  const p = st.pkg, w = .5, h = .4 * pk.h, z = .55, x0 = pk.x - w / 2, d0 = pk.d - w / 2;
+  const o = { stroke: p.stroke, sw: p.sw };
+  let s = box(x0, d0, z, w, w, h, { top: p.top, front: p.front, side: p.side }, o);
+  if (p.tape) {
+    s += poly([P(x0, pk.d - .06, z + h), P(x0 + w, pk.d - .06, z + h), P(x0 + w, pk.d + .06, z + h), P(x0, pk.d + .06, z + h)], p.tape);
+    s += poly([P(pk.x - .06, d0, z), P(pk.x + .06, d0, z), P(pk.x + .06, d0, z + h), P(pk.x - .06, d0, z + h)], p.tape);
+  }
+  if (p.cross) { s += line(P(x0, d0, z), P(x0 + w, d0, z + h), p.cross, 2) + line(P(x0, d0, z + h), P(x0 + w, d0, z), p.cross, 2); }
+  if (p.letter) { const c = P(pk.x, d0, z + h * .5); s += `<text x="${r1(c[0])}" y="${r1(c[1] + 6)}" text-anchor="middle" font-size="16" font-weight="800" fill="${p.letter}" font-family="${st.font}">A</text>`; }
+  if (p.seal) { const c = P(pk.x, pk.d, z + h); s += `<ellipse cx="${r1(c[0])}" cy="${r1(c[1])}" rx="6" ry="4" fill="${p.seal}"/>`; }
+  passed.forEach((F, i) => { const c = P(x0 + .1 + i * .07, d0 + .12, z + h); s += `<circle cx="${r1(c[0])}" cy="${r1(c[1])}" r="2.6" fill="${col[F.m]}" stroke="${p.stampStroke || 'none'}" stroke-width=".8"/>`; });
+  return `<g opacity="${pk.a.toFixed(2)}"${p.filter ? ` filter="url(#${st.k}-${p.filter})"` : ''}>${s}</g>`;
+}
+
+function chatSvg(st, S0) {
+  const c = st.chat, X = .352, o = { stroke: c.stroke, sw: c.sw };
+  const face = (d0, d1, z0, z1) => [P(X, d0, z0), P(X, d1, z0), P(X, d1, z1), P(X, d0, z1)];
+  const T = (d, z, str, size, fill, weight = 500) => { const [ex, ey] = P(X + .001, d, z); return `<text transform="matrix(${KX},${-KD},0,1,${r1(ex)},${r1(ey)})" font-size="${size}" font-weight="${weight}" fill="${fill}" font-family="${st.font}">${esc(str)}</text>`; };
+  let s = box(0, .1, 0, .35, 7.0, 3.0, c.frame, o);
+  s += poly(face(.25, 6.95, .18, 2.85), c.screen, o);
+  s += poly(face(.25, 6.95, 2.52, 2.85), c.head || shade(c.screen, .08));
+  s += T(.45, 2.6, 'Chat', 12, c.text, 700);
+  s += poly(face(3.0, 6.75, 2.02, 2.42), c.user); s += T(3.15, 2.12, 'Bau die Halle um', 12, c.userText || '#fff', 600);
+  const done = S0.phase === 'end' && S0.u > .3;
+  s += poly(face(.45, 4.4, 1.5, 1.9), done ? c.accent : c.ai, done ? {} : { stroke: c.aiStroke, sw: 1 });
+  s += T(.6, 1.6, done ? 'Fertig: Ergebnis geprüft' : 'arbeitet' + '.'.repeat(1 + Math.floor(S0.time * 2) % 3), 12, done ? (c.accentText || '#111') : c.text, 600);
+  const send = S0.phase === 'spawn';
+  s += poly(face(.45, 6.75, .95, 1.32), c.input || shade(c.screen, .1), { stroke: send ? c.accent : (c.inputStroke || c.stroke), sw: send ? 2.5 : (c.sw || 1) });
+  s += T(.6, 1.05, send ? 'Auftrag gesendet' : 'Nachricht an Claude', 11, c.muted || c.text, 500);
+  s += poly(face(.45, 1.35, .24, .78), c.slot || '#000') + poly(face(5.95, 6.85, .24, .78), c.slot || '#000');
+  return s;
+}
+
+function labelSvg(st, S0, col) {
+  const L = st.label; let s = '';
+  for (const F of [...ST, ORCH]) {
+    const top = headTop(st, F), p = P(F.x, F.d, top + .24);
+    const txt = L.upper ? F.name.toUpperCase() : F.name, size = L.size || 11, w = txt.length * size * (L.wf || .62) + 14 + (L.dot ? 10 : 0);
+    if (L.bg) s += `<rect x="${r1(p[0] - w / 2)}" y="${r1(p[1] - size - 3)}" width="${r1(w)}" height="${size + 8}" rx="${L.rx ?? 6}" fill="${L.bg}"${L.stroke ? ` stroke="${L.stroke}"` : ''}/>`;
+    if (L.dot) s += `<circle cx="${r1(p[0] - w / 2 + 9)}" cy="${r1(p[1] - size / 2 + 1)}" r="3" fill="${col[F.m]}"/>`;
+    s += `<text x="${r1(p[0] + (L.dot ? 5 : 0))}" y="${r1(p[1])}" text-anchor="middle" font-size="${size}" font-weight="${L.weight || 600}" fill="${L.fill}" font-family="${L.font || st.font}" letter-spacing="${L.ls || 0}"${L.italic ? ' font-style="italic"' : ''}>${esc(txt)}</text>`;
+    if (F === S0.active) {
+      const b = st.bubble, q = P(F.x, F.d, top + .85), bw = F.role.length * 6.6 + 20;
+      s += `<rect x="${r1(q[0] - bw / 2)}" y="${r1(q[1] - 16)}" width="${r1(bw)}" height="22" rx="${b.rx ?? 11}" fill="${b.bg}"${b.stroke ? ` stroke="${b.stroke}" stroke-width="1.2"` : ''}/>`;
+      s += `<path d="M${r1(q[0] - 5)},${r1(q[1] + 6)} l5,6 l5,-6 z" fill="${b.bg}"/>`;
+      s += `<text x="${r1(q[0])}" y="${r1(q[1])}" text-anchor="middle" font-size="11.5" font-weight="650" fill="${b.fg}" font-family="${L.font || st.font}">${esc(F.role)}</text>`;
+    }
+  }
+  return s;
+}
+
+function baseDefs(k) {
+  return `<filter id="${k}-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4"/></filter>
+<filter id="${k}-glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="${k}-drop" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="3" dy="4" stdDeviation="2.5" flood-color="#5b4630" flood-opacity=".35"/></filter>
+<radialGradient id="${k}-shine" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1d10" stop-opacity=".28"/></radialGradient>`;
+}
+const FLOOR = [P(-.6, -1.6), P(13.4, -1.6), P(13.4, 8.4), P(-.6, 8.4)];
+const slab = (c, o) => box(-.6, -1.6, -.3, 14, 10, .3, c, o);
+function grid(step, c, w = 1, op = 1) {
+  let s = '';
+  for (let x = -.6; x <= 13.41; x += step) s += line(P(x, -1.6), P(x, 8.4), c, w, ` opacity="${op}"`);
+  for (let d = -1.6; d <= 8.41; d += step) s += line(P(-.6, d), P(13.4, d), c, w, ` opacity="${op}"`);
+  return s;
+}
+function render(st, time) {
+  SNAP = st.snap || 0;
+  const k = st.k, S0 = state(time), col = Object.assign({}, MC, st.col || {});
+  const items = beltItems(st, S0.s);
+  for (const F of [...ST, ORCH]) {
+    const act = F === S0.active || (F === ORCH && S0.phase === 'move');
+    items.push({ d: F.d, x: F.x, svg: figure(st, F, col[F.m], act, time, S0.pk) });
+  }
+  if (S0.pk) items.push({ d: S0.pk.d - .3, x: S0.pk.x, svg: pkgSvg(st, S0.pk, S0.passed, col) });
+  items.sort((a, b) => b.d - a.d || a.x - b.x);
+  let out = `<svg viewBox="0 0 ${VW} ${VH}" xmlns="http://www.w3.org/2000/svg"${st.snap ? ' shape-rendering="crispEdges"' : ''} role="img" aria-label="${esc(st.name)}: Fabrikhalle mit Förderband">`;
+  out += `<defs>${baseDefs(k)}${st.defs ? st.defs(k) : ''}</defs>`;
+  out += st.bg(k, time);
+  out += st.floor(k, time);
+  if (st.beltShadow) out += `<polygon points="${pts([...PATH.outer.map(q => P(q[0] + .15, q[1] - .1, 0)), ...PATH.inner.slice().reverse().map(q => P(q[0] + .15, q[1] - .1, 0))])}" fill="${st.beltShadow}" filter="url(#${k}-blur)"/>`;
+  out += chatSvg(st, S0);
+  out += items.map(i => i.svg).join('');
+  if (S0.active && st.link) {
+    const a = P(ORCH.x, ORCH.d, headTop(st, ORCH) - .2), b = P(S0.active.x, S0.active.d, headTop(st, S0.active) - .2);
+    out += `<line x1="${r1(a[0])}" y1="${r1(a[1])}" x2="${r1(b[0])}" y2="${r1(b[1])}" stroke="${st.link}" stroke-width="1.6" stroke-dasharray="5 5" stroke-dashoffset="${r1(-time * 30)}" opacity=".85"/>`;
+  }
+  if (st.overlayMid) out += st.overlayMid(k, time, S0);
+  out += labelSvg(st, S0, col);
+  if (st.overlay) out += st.overlay(k, time, S0);
+  out += '</svg>';
+  SNAP = 0;
+  return out;
+}
+
+const ST10 = [
+{
+  k: 'werk', name: 'Werkhalle', desc: 'Realistisch: Sichtbeton, Gummiband auf Stahlrahmen, Industrieroboter, warmes Hallenlicht.',
+  font: '"Segoe UI", system-ui, sans-serif',
+  defs: k => `<linearGradient id="${k}-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2926"/><stop offset="1" stop-color="#151413"/></linearGradient>
+<linearGradient id="${k}-fl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6a6660"/><stop offset=".55" stop-color="#57544f"/><stop offset="1" stop-color="#4a4743"/></linearGradient>
+<linearGradient id="${k}-cone" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe2b0" stop-opacity=".32"/><stop offset="1" stop-color="#ffe2b0" stop-opacity="0"/></linearGradient>
+<radialGradient id="${k}-vig" cx="50%" cy="55%" r="70%"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#0b0a09" stop-opacity=".7"/></radialGradient>`,
+  bg: k => `<rect width="${VW}" height="${VH}" fill="url(#${k}-bg)"/>`,
+  floor: k => {
+    let s = slab({ top: `url(#${k}-fl)`, front: '#3b3936', side: '#2f2d2a' });
+    s += grid(2, '#2e2c29', 1, .55);
+    const inset = [P(-.3, -1.3), P(13.1, -1.3), P(13.1, 8.1), P(-.3, 8.1)];
+    s += `<polygon points="${pts(inset)}" fill="none" stroke="#e8b31e" stroke-width="5"/><polygon points="${pts(inset)}" fill="none" stroke="#1d1b19" stroke-width="5" stroke-dasharray="9 9"/>`;
+    return s;
+  },
+  beltShadow: '#0e0d0c99',
+  belt: { top: '#232427', side: '#8e959e', stripe: '#38393d', gap: .2, rail: '#c8cdd3', railW: 1.2, legs: '#5d636b' },
+  fig: { kind: 'robot' },
+  shadow: '#0f0e0d',
+  pkg: { top: '#d3a468', front: '#b9884f', side: '#9b6e3d', tape: '#e8d3a2', stroke: '#7a5530', sw: .6, stampStroke: '#5b3e20' },
+  chat: { frame: '#3b3e44', screen: '#101216', head: '#1a1d23', text: '#e8e6e1', muted: '#8f949c', user: '#d9683f', ai: '#22262d', accent: '#ffb547', input: '#171a1f', slot: '#050506', stroke: '#2a2d33', sw: 1 },
+  activeUnder: (k, F, B, col, t) => `<ellipse cx="${B[0]}" cy="${B[1]}" rx="${.6 * S}" ry="${.24 * S}" fill="none" stroke="#ffb547" stroke-width="2" stroke-dasharray="6 5" stroke-dashoffset="${r1(-t * 20)}"/>`,
+  label: { fill: '#f2efe8', bg: '#1b1c1fd9', stroke: '#3a3b40', dot: true },
+  bubble: { bg: '#ffb547', fg: '#231507' },
+  link: '#ffb547',
+  overlay: k => {
+    let s = '';
+    for (const x of [230, 520, 790]) { s += `<polygon points="${x - 16},0 ${x + 16},0 ${x + 170},${VH} ${x - 170},${VH}" fill="url(#${k}-cone)"/><rect x="${x - 26}" y="0" width="52" height="8" rx="2" fill="#2d2c2a"/><rect x="${x - 20}" y="8" width="40" height="3" fill="#ffe9c2"/>`; }
+    return s + `<rect width="${VW}" height="${VH}" fill="url(#${k}-vig)"/>`;
+  },
+},
+{
+  k: 'neon', name: 'Mitternachts-Neon', desc: 'Dein Abend-Theme: Mitternachtsblau, leuchtende Kanten, Figuren als Lichtrahmen.',
+  font: '"Cascadia Code", "JetBrains Mono", ui-monospace, monospace',
+  col: { fable: '#ffd84a', opus: '#ff9d3c', sonnet: '#38c8ff', haiku: '#3dffa0', orch: '#c58bff' },
+  defs: k => `<linearGradient id="${k}-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b0c22"/><stop offset=".6" stop-color="#14163a"/><stop offset="1" stop-color="#1d1f52"/></linearGradient>
+<linearGradient id="${k}-hz" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff4fd8" stop-opacity="0"/><stop offset="1" stop-color="#ff4fd8" stop-opacity=".18"/></linearGradient>`,
+  bg: k => { let s = `<rect width="${VW}" height="${VH}" fill="url(#${k}-bg)"/>`; for (let i = 0; i < 40; i++) { const x = (i * 137) % VW, y = (i * 59) % 190; s += `<circle cx="${x}" cy="${y}" r="${i % 3 ? .8 : 1.4}" fill="#cfd3ff" opacity="${.25 + (i % 4) * .15}"/>`; } return s + `<rect y="120" width="${VW}" height="140" fill="url(#${k}-hz)"/>`; },
+  floor: k => slab({ top: '#11132e', front: '#0b0c22', side: '#08091a' }) + grid(1, '#ff4fd8', 1, .28) + `<polygon points="${pts(FLOOR)}" fill="none" stroke="#38f6ff" stroke-width="1.5" filter="url(#${k}-glow)"/>`,
+  belt: { top: '#0a0b1d', side: '#151842', stripe: '#38f6ff33', gap: .3, rail: '#38f6ff', railW: 1.6, railFilter: 'glow' },
+  fig: { kind: 'block', body: '#15173a', skin: '#1f2252', stroke: 'model', sw: 1.4, filter: 'glow' },
+  console: '#15173a', consoleO: { stroke: '#38f6ff', sw: 1 },
+  pkg: { top: '#ffb15c', front: '#ff8f2a', side: '#d96d10', stroke: '#ffe0bf', sw: .8, filter: 'glow' },
+  chat: { frame: '#1b1d48', screen: '#080918', head: '#12143a', text: '#eceeff', muted: '#8d92c9', user: '#ff4fd8', ai: '#161944', aiStroke: '#38f6ff55', accent: '#3dffa0', input: '#0e1030', inputStroke: '#38f6ff66', slot: '#000', stroke: '#38f6ff55', sw: 1 },
+  activeUnder: (k, F, B, col, t) => `<ellipse cx="${B[0]}" cy="${B[1]}" rx="${.55 * S}" ry="${.22 * S}" fill="none" stroke="${col}" stroke-width="2.5" filter="url(#${k}-glow)" opacity="${(.6 + .4 * Math.sin(t * 6)).toFixed(2)}"/><rect x="${B[0] - 10}" y="${B[1] - 120}" width="20" height="120" fill="${col}" opacity=".12"/>`,
+  label: { fill: '#eceeff', bg: '#0b0c22cc', stroke: '#38f6ff55', size: 10.5, wf: .66 },
+  bubble: { bg: '#38f6ff', fg: '#07081a', rx: 3 },
+  link: '#c58bff',
+  overlay: () => { let s = ''; for (let y = 0; y < VH; y += 4) s += `<rect y="${y}" width="${VW}" height="1" fill="#000" opacity=".12"/>`; return s; },
+},
+{
+  k: 'blau', name: 'Blaupause', desc: 'Technische Zeichnung: weiße Linien auf Blau, Maßkette, Schriftfeld, keine Füllfarben.',
+  font: '"Consolas", ui-monospace, monospace',
+  col: { fable: '#ffe9a8', opus: '#ffc2a8', sonnet: '#bcd6ff', haiku: '#b8f2d2', orch: '#dccbff' },
+  defs: k => `<pattern id="${k}-g" width="12" height="12" patternUnits="userSpaceOnUse"><path d="M12 0H0V12" fill="none" stroke="#ffffff" stroke-opacity=".08"/></pattern><pattern id="${k}-G" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M60 0H0V60" fill="none" stroke="#ffffff" stroke-opacity=".16"/></pattern>`,
+  bg: k => `<rect width="${VW}" height="${VH}" fill="#1b4a8a"/><rect width="${VW}" height="${VH}" fill="url(#${k}-g)"/><rect width="${VW}" height="${VH}" fill="url(#${k}-G)"/>`,
+  floor: () => slab('#1d4f93', { stroke: '#e8f1ff', sw: 1.2 }),
+  belt: { top: '#1d4f93', side: '#1b4a8a', stroke: '#e8f1ff', sw: .9, center: '#e8f1ffaa' },
+  fig: { kind: 'block', body: '#1d4f93', skin: '#1d4f93', stroke: '#e8f1ff', sw: 1, hatStroke: '#e8f1ff' },
+  console: '#1d4f93', consoleO: { stroke: '#e8f1ff', sw: 1 },
+  pkg: { top: '#1d4f93', front: '#1b4a8a', side: '#184480', stroke: '#ffffff', sw: 1.2, letter: '#ffffff', stampStroke: '#fff' },
+  chat: { frame: '#1d4f93', screen: '#1b4a8a', head: '#1d4f93', text: '#e8f1ff', muted: '#bcd0ee', user: '#2a5da3', ai: '#1b4a8a', aiStroke: '#e8f1ff', accent: '#e8f1ff', accentText: '#1b4a8a', input: '#1b4a8a', slot: '#123a6e', stroke: '#e8f1ff', sw: 1 },
+  activeUnder: (k, F, B, col, t) => `<circle cx="${B[0]}" cy="${B[1] - 22}" r="${r1(34 + 3 * Math.sin(t * 4))}" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-dasharray="4 4"/>`,
+  label: { fill: '#e8f1ff', size: 10.5, upper: true, ls: 1.2, weight: 500 },
+  bubble: { bg: '#e8f1ff', fg: '#1b4a8a', rx: 0 },
+  link: '#e8f1ff',
+  overlay: (k, t, S0) => {
+    const a = P(XS, -1.25), b = P(XR + HW, -1.25);
+    let s = line(a, b, '#e8f1ff', 1) + line(P(XS, -1.1), P(XS, -1.4), '#e8f1ff', 1) + line(P(XR + HW, -1.1), P(XR + HW, -1.4), '#e8f1ff', 1);
+    s += `<text x="${(a[0] + b[0]) / 2}" y="${a[1] - 5}" text-anchor="middle" font-size="10" fill="#e8f1ff" font-family="Consolas, monospace">BANDLÄNGE ${PATH.L.toFixed(1).replace('.', ',')} m</text>`;
+    s += `<g font-family="Consolas, monospace" fill="#e8f1ff" font-size="10"><rect x="700" y="24" width="236" height="64" fill="#1b4a8a" stroke="#e8f1ff"/><line x1="700" y1="48" x2="936" y2="48" stroke="#e8f1ff"/><line x1="820" y1="48" x2="820" y2="88" stroke="#e8f1ff"/><text x="710" y="40" font-size="12" font-weight="700">HALLE 3  FÖRDERSTRECKE</text><text x="710" y="64">MASSSTAB 1:50</text><text x="710" y="80">BLATT 1/1</text><text x="830" y="64">AUFTRAG ${String(S0.cycle + 1).padStart(3, '0')}</text><text x="830" y="80">GEPRÜFT: FABLE</text></g>`;
+    return s;
+  },
+},
+{
+  k: 'knete', name: 'Knetfiguren', desc: 'Weiches Clay-Rendering in Pastell, runde Figuren mit Gesicht, die bei der Arbeit hüpfen.',
+  font: '"Segoe UI Rounded", "Nunito", ui-rounded, system-ui, sans-serif',
+  col: { fable: '#ffc857', opus: '#ff8a65', sonnet: '#7aa7ff', haiku: '#6fd3a1', orch: '#b79cff' },
+  defs: k => `<radialGradient id="${k}-bg" cx="50%" cy="35%" r="80%"><stop offset="0" stop-color="#fff1e6"/><stop offset="1" stop-color="#f4c9b8"/></radialGradient>`,
+  bg: k => `<rect width="${VW}" height="${VH}" fill="url(#${k}-bg)"/>`,
+  floor: k => `<ellipse cx="480" cy="470" rx="420" ry="80" fill="#c98f7a" opacity=".35" filter="url(#${k}-blur)"/>` + slab({ top: '#fff6ee', front: '#f2d2c2', side: '#e6bba8' }, { stroke: '#fff6ee', sw: 14 }),
+  beltShadow: '#d8a28f88',
+  belt: { top: '#9cc3e4', side: '#77a2c9', stroke: '#9cc3e4', sw: 6, stripe: '#b4d4ef', gap: .45, stripeW: 3 },
+  fig: { kind: 'capsule', skin: '#ffe3cc', bounce: true },
+  shadow: '#c9917c',
+  console: '#f7e1d3', consoleO: { stroke: '#f7e1d3', sw: 8 },
+  pkg: { top: '#ffb3d1', front: '#ff9ec4', side: '#f283b0', stroke: '#ff9ec4', sw: 6, stampStroke: '#fff' },
+  chat: { frame: '#ffffff', screen: '#fdf6f0', head: '#f7e9df', text: '#5a3e36', muted: '#a6877d', user: '#ff8a65', ai: '#f2e4da', accent: '#6fd3a1', accentText: '#1f3d2e', input: '#ffffff', inputStroke: '#efd8cb', slot: '#e9cfc2', stroke: '#ffffff', sw: 6 },
+  activeUnder: (k, F, B, col, t) => { let s = ''; for (let i = 0; i < 4; i++) { const a = t * 2 + i * 1.57, x = r1(B[0] + Math.cos(a) * 34), y = r1(B[1] - 60 + Math.sin(a) * 14); s += `<path d="M${x},${y - 6} L${x + 2},${y - 2} L${x + 6},${y} L${x + 2},${y + 2} L${x},${y + 6} L${x - 2},${y + 2} L${x - 6},${y} L${x - 2},${y - 2} Z" fill="${col}"/>`; } return s; },
+  label: { fill: '#5a3e36', bg: '#ffffff', size: 11, weight: 800, rx: 11 },
+  bubble: { bg: '#5a3e36', fg: '#fff6ee' },
+  link: '#b79cff',
+},
+{
+  k: 'voxel', name: 'Blockwelt', desc: 'Voxel-Look: Grasblöcke, Steinband, Holzkiste, Figuren aus Würfeln unter blauem Himmel.',
+  font: '"Cascadia Mono", ui-monospace, monospace',
+  col: { fable: '#f2b632', opus: '#d4542c', sonnet: '#3c78d8', haiku: '#46b04a', orch: '#9b59d0' },
+  defs: k => `<linearGradient id="${k}-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fbcf7"/><stop offset="1" stop-color="#cdeeff"/></linearGradient>`,
+  bg: k => { let s = `<rect width="${VW}" height="${VH}" fill="url(#${k}-bg)"/><rect x="820" y="30" width="56" height="56" fill="#fff3a6"/>`; for (const [x, y, w] of [[90, 60, 120], [380, 40, 160], [610, 110, 100]]) s += `<rect x="${x}" y="${y}" width="${w}" height="22" fill="#ffffff"/><rect x="${x + 20}" y="${y - 14}" width="${w * .5}" height="14" fill="#ffffff"/>`; return s; },
+  floor: () => {
+    let s = slab({ top: '#5fb34a', front: '#8a5a35', side: '#6e4528' });
+    for (let x = -.6, i = 0; x < 13.4; x += 1, i++) for (let d = -1.6, j = 0; d < 8.4; d += 1, j++) if ((i + j) % 2) s += poly([P(x, d), P(x + 1, d), P(x + 1, d + 1), P(x, d + 1)], '#56a743');
+    return s;
+  },
+  belt: { top: '#8f8f8f', side: '#6b6b6b', stroke: '#454545', sw: .7, stripe: '#707070', gap: .5, stripeW: 1.5 },
+  fig: { kind: 'voxel', skin: '#e0ac7e', stroke: '#00000055', sw: .6, legs: '#33497d' },
+  shadow: '#2f6b28',
+  console: '#8f8f8f',
+  pkg: { top: '#c08a4a', front: '#a8743a', side: '#8c5e2c', stroke: '#5e3d1a', sw: 1.2, cross: '#6b4520' },
+  chat: { frame: '#8f8f8f', screen: '#1e1e1e', head: '#2c2c2c', text: '#ffffff', muted: '#a0a0a0', user: '#3c78d8', ai: '#333333', accent: '#46b04a', accentText: '#fff', input: '#2a2a2a', slot: '#000', stroke: '#454545', sw: 1 },
+  activeUnder: (k, F, B, col, t) => { let s = ''; for (let i = 0; i < 5; i++) { const v = (t * 40 + i * 22) % 90, y = r1(B[1] - 30 - v), x = B[0] - 20 + i * 10; s += `<rect x="${x}" y="${y}" width="5" height="5" fill="${col}" opacity="${(1 - v / 90).toFixed(2)}"/>`; } return s; },
+  label: { fill: '#ffffff', bg: '#00000080', size: 11, rx: 0, weight: 700, wf: .64 },
+  bubble: { bg: '#ffffff', fg: '#222222', rx: 0, stroke: '#222' },
+  link: '#ffffff',
+},
+{
+  k: 'papier', name: 'Papierschnitt', desc: 'Flache, geschnittene Papierlagen mit echten Schatten, gedeckte Farben, Siegel auf dem Umschlag.',
+  font: 'Georgia, "Iowan Old Style", serif',
+  col: { fable: '#d9a441', opus: '#c8553d', sonnet: '#3e6fa8', haiku: '#5c9a6b', orch: '#7a5ea8' },
+  defs: k => `<filter id="${k}-grain"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 .35  0 0 0 0 .28  0 0 0 0 .2  0 0 0 .5 0"/></filter>`,
+  bg: () => `<rect width="${VW}" height="${VH}" fill="#ece1cc"/>`,
+  floor: k => `<g filter="url(#${k}-drop)">${slab({ top: '#dccdae', front: '#c7b48f', side: '#b8a37c' })}</g>` + poly([P(.1, -1.0), P(12.8, -1.0), P(12.8, 7.9), P(.1, 7.9)], '#e6d9bd'),
+  belt: { top: '#8c6f4e', side: '#6f573c', filter: 'drop' },
+  fig: { kind: 'paper', skin: '#f6ecdb' },
+  console: '#cdbb98',
+  pkg: { top: '#fbf6ec', front: '#efe5d2', side: '#e0d3ba', seal: '#a8322a', filter: 'drop', stampStroke: '#fff' },
+  chat: { frame: '#fbf6ec', screen: '#fffdf8', head: '#f1e8d6', text: '#3b3026', muted: '#8a7b68', user: '#c8553d', ai: '#efe5d2', accent: '#5c9a6b', accentText: '#fff', input: '#fbf6ec', inputStroke: '#d6c6a8', slot: '#6f573c', stroke: '#d6c6a8', sw: 1 },
+  activeUnder: (k, F, B, col) => { const c = [B[0], B[1] - 30]; const p = []; for (let i = 0; i < 16; i++) { const r = i % 2 ? 22 : 46, a = i * Math.PI / 8; p.push([c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r * .8]); } return poly(p, col, { op: .3 }); },
+  label: { fill: '#3b3026', bg: '#fbf6ec', size: 12, italic: true, weight: 500, font: 'Georgia, serif', rx: 2, wf: .55 },
+  bubble: { bg: '#3b3026', fg: '#fbf6ec', rx: 2 },
+  link: '#7a5ea8',
+  overlay: k => `<rect width="${VW}" height="${VH}" filter="url(#${k}-grain)" opacity=".22"/>`,
+},
+{
+  k: 'arcade', name: 'Arcade', desc: 'Retro-Pixel: begrenzte Palette, harte Kanten, Warnstreifen-Band, Zähler, Röhrenbild.',
+  font: '"Lucida Console", ui-monospace, monospace', snap: 4,
+  col: { fable: '#ffa300', opus: '#ff004d', sonnet: '#29adff', haiku: '#00e436', orch: '#ff77a8' },
+  bg: () => `<rect width="${VW}" height="${VH}" fill="#1d2b53"/>`,
+  floor: () => { let s = slab({ top: '#5f574f', front: '#000000', side: '#111111' }); for (let x = -.6, i = 0; x < 13.4; x += 1, i++) for (let d = -1.6, j = 0; d < 8.4; d += 1, j++) if ((i + j) % 2) s += poly([P(x, d), P(x + 1, d), P(x + 1, d + 1), P(x, d + 1)], '#544d46'); return s; },
+  belt: { top: '#000000', side: '#5f574f', stripe: '#ffec27', gap: .35, stripeW: 4, rail: '#c2c3c7', railW: 2 },
+  fig: { kind: 'voxel', skin: '#ffccaa', stroke: '#000000', sw: 1.2, legs: '#1d2b53' },
+  console: '#83769c',
+  pkg: { top: '#c0683a', front: '#ab5236', side: '#7e2553', stroke: '#000', sw: 1.5, stampStroke: '#000' },
+  chat: { frame: '#c2c3c7', screen: '#000000', head: '#1d2b53', text: '#00e436', muted: '#008751', user: '#7e2553', userText: '#fff1e8', ai: '#111111', accent: '#ffec27', input: '#000', inputStroke: '#00e436', slot: '#1d2b53', stroke: '#000', sw: 2 },
+  activeUnder: (k, F, B, col, t) => Math.floor(t * 4) % 2 ? '' : `<rect x="${B[0] - 30}" y="${B[1] - 6}" width="60" height="12" fill="none" stroke="#ffec27" stroke-width="4"/>`,
+  label: { fill: '#fff1e8', bg: '#000000', size: 10, upper: true, rx: 0, wf: .7, weight: 700 },
+  bubble: { bg: '#ffec27', fg: '#000000', rx: 0 },
+  link: '#ff77a8',
+  overlay: (k, t, S0) => { let s = ''; for (let y = 0; y < VH; y += 3) s += `<rect y="${y}" width="${VW}" height="1" fill="#000" opacity=".22"/>`; return s + `<text x="24" y="40" font-family="Lucida Console, monospace" font-size="16" font-weight="700" fill="#fff1e8">HALLE-3</text><text x="936" y="40" text-anchor="end" font-family="Lucida Console, monospace" font-size="16" font-weight="700" fill="#ffec27">GELIEFERT ${String(S0.cycle).padStart(4, '0')}</text>`; },
+},
+{
+  k: 'holo', name: 'Holo-Labor', desc: 'Durchsichtige Hologramme in Türkis, schwebende Ringe, wanderndes Scanlicht, nichts ist massiv.',
+  font: '"Segoe UI", system-ui, sans-serif',
+  col: { fable: '#ffd166', opus: '#ff8fab', sonnet: '#5ec8ff', haiku: '#3ff2a8', orch: '#c3a6ff' },
+  defs: k => `<radialGradient id="${k}-bg" cx="50%" cy="60%" r="75%"><stop offset="0" stop-color="#083238"/><stop offset="1" stop-color="#020a0c"/></radialGradient><linearGradient id="${k}-scan" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3ff2e0" stop-opacity="0"/><stop offset=".5" stop-color="#3ff2e0" stop-opacity=".16"/><stop offset="1" stop-color="#3ff2e0" stop-opacity="0"/></linearGradient>`,
+  bg: k => `<rect width="${VW}" height="${VH}" fill="url(#${k}-bg)"/>`,
+  floor: k => poly(FLOOR, '#0b3a40', { op: .45 }) + grid(.5, '#3ff2e0', .6, .14) + grid(2, '#3ff2e0', 1, .3) + `<polygon points="${pts(FLOOR)}" fill="none" stroke="#3ff2e0" stroke-width="1.4" filter="url(#${k}-glow)"/>`,
+  belt: { top: '#3ff2e01c', side: '#3ff2e00d', stroke: '#3ff2e0aa', sw: .8, stripe: '#3ff2e055', gap: .25 },
+  fig: { kind: 'holo' },
+  console: '#0d4d55', consoleO: { stroke: '#3ff2e0', sw: .8 },
+  pkg: { top: '#ffd16633', front: '#ffd16622', side: '#ffd16618', stroke: '#ffd166', sw: 1.4, filter: 'glow' },
+  chat: { frame: '#0a3a40', screen: '#021316', head: '#06262b', text: '#bff9f3', muted: '#5fa8a1', user: '#0f5a61', ai: '#04201f', aiStroke: '#3ff2e0', accent: '#3ff2e0', accentText: '#021316', input: '#021a1d', inputStroke: '#3ff2e077', slot: '#000', stroke: '#3ff2e0', sw: .8 },
+  activeUnder: (k, F, B, col, t) => { let s = ''; for (let i = 0; i < 3; i++) { const u = ((t * .8 + i / 3) % 1); s += `<ellipse cx="${B[0]}" cy="${r1(B[1] - u * 70)}" rx="${r1(.55 * S * (1 - u * .4))}" ry="${r1(.2 * S * (1 - u * .4))}" fill="none" stroke="${col}" stroke-width="1.6" opacity="${(1 - u).toFixed(2)}"/>`; } return s; },
+  label: { fill: '#bff9f3', size: 10, upper: true, ls: 2, weight: 400, wf: .72 },
+  bubble: { bg: '#3ff2e0', fg: '#021316', rx: 2 },
+  link: '#3ff2e0',
+  overlay: (k, t) => `<rect y="${r1(((t * 60) % (VH + 120)) - 120)}" width="${VW}" height="120" fill="url(#${k}-scan)"/>`,
+},
+{
+  k: 'holz', name: 'Holzspielzeug', desc: 'Kinderzimmer-Werkstatt: Ahornbrett, Filzband, bemalte Steckfiguren, Buchstabenwürfel als Paket.',
+  font: '"Segoe UI", system-ui, sans-serif',
+  col: { fable: '#e8a628', opus: '#d6452f', sonnet: '#2f6fd6', haiku: '#2e9e5b', orch: '#8a4fc7' },
+  defs: k => `<linearGradient id="${k}-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9eef2"/><stop offset="1" stop-color="#cfd8df"/></linearGradient>
+<linearGradient id="${k}-woodv" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c9955c"/><stop offset=".45" stop-color="#f0cc98"/><stop offset="1" stop-color="#b9824a"/></linearGradient>
+<radialGradient id="${k}-ball" cx="38%" cy="32%" r="70%"><stop offset="0" stop-color="#fbe3bf"/><stop offset="1" stop-color="#d49a5e"/></radialGradient>
+<linearGradient id="${k}-board" x1="0" y1="0" x2="1" y2=".2"><stop offset="0" stop-color="#e7c18b"/><stop offset="1" stop-color="#d8ab70"/></linearGradient>`,
+  bg: k => `<rect width="${VW}" height="${VH}" fill="url(#${k}-bg)"/>`,
+  floor: k => { let s = slab({ top: `url(#${k}-board)`, front: '#b98a58', side: '#a3774a' }); for (let d = -1.4; d < 8.4; d += .42) s += line(P(-.6, d), P(13.4, d + Math.sin(d * 3) * .08), '#b98a58', 1, ' opacity=".35"'); return s; },
+  beltShadow: '#8a623b55',
+  belt: { top: '#4f7d5a', side: '#c49a68', stripe: '#5d8c67', gap: .5, stripeW: 2, legs: '#b07f4c' },
+  fig: { kind: 'peg' },
+  shadow: '#8a623b',
+  console: '#c49a68',
+  pkg: { top: '#f0cf8c', front: '#e8c07a', side: '#d4a85e', stroke: '#b5874a', sw: .8, letter: '#d6452f' },
+  chat: { frame: '#c49a68', screen: '#fbf7ef', head: '#efe4d1', text: '#4a3524', muted: '#9a836b', user: '#2f6fd6', ai: '#efe4d1', accent: '#2e9e5b', accentText: '#fff', input: '#ffffff', inputStroke: '#dcc7a6', slot: '#5a3f26', stroke: '#a3774a', sw: 1 },
+  activeUnder: (k, F, B, col) => `<ellipse cx="${B[0]}" cy="${B[1]}" rx="${.6 * S}" ry="${.24 * S}" fill="${col}" opacity=".25"/>`,
+  label: { fill: '#4a3524', bg: '#fbf7ef', stroke: '#c49a68', size: 11, weight: 700, rx: 10 },
+  bubble: { bg: '#4a3524', fg: '#fbf7ef' },
+  link: '#8a4fc7',
+  overlay: () => `<polygon points="560,0 700,0 420,${VH} 280,${VH}" fill="#ffffff" opacity=".13"/><polygon points="730,0 790,0 510,${VH} 450,${VH}" fill="#ffffff" opacity=".09"/>`,
+},
+{
+  k: 'kino', name: 'Nachtschicht', desc: 'Filmisch: dunkle Halle, nur die arbeitende Station steht im Spotlicht, das Paket glüht wie eine Lampe.',
+  font: '"Bahnschrift", "Arial Narrow", sans-serif',
+  col: { fable: '#c9a24a', opus: '#b8583a', sonnet: '#4f6fae', haiku: '#4f9070', orch: '#7f6aa8' },
+  defs: k => `<radialGradient id="${k}-fl" cx="50%" cy="50%" r="60%"><stop offset="0" stop-color="#23262b"/><stop offset="1" stop-color="#0f1012"/></radialGradient>
+<linearGradient id="${k}-cone" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff4dc" stop-opacity=".05"/><stop offset="1" stop-color="#fff4dc" stop-opacity=".3"/></linearGradient>
+<radialGradient id="${k}-pool" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#fff4dc" stop-opacity=".45"/><stop offset="1" stop-color="#fff4dc" stop-opacity="0"/></radialGradient>
+<radialGradient id="${k}-vig" cx="50%" cy="55%" r="65%"><stop offset=".45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#030304" stop-opacity=".85"/></radialGradient>
+<filter id="${k}-grain"><feTurbulence type="fractalNoise" baseFrequency="1.2" numOctaves="1" seed="3"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .35 0"/></filter>`,
+  bg: () => `<rect width="${VW}" height="${VH}" fill="#08090b"/>`,
+  floor: k => slab({ top: `url(#${k}-fl)`, front: '#0b0c0e', side: '#08090a' }),
+  belt: { top: '#111215', side: '#1b1d21', stripe: '#1e2024', gap: .22, rail: '#3e424a', railW: 1 },
+  fig: { kind: 'block', body: '#1c1e23', skin: '#26292f', stroke: '#3a3e46', sw: .6, lit: true },
+  console: '#16181c',
+  pkg: { top: '#ffc777', front: '#ffb347', side: '#e08f22', stroke: '#fff0d0', sw: .5, filter: 'glow' },
+  chat: { frame: '#121418', screen: '#0b0d10', head: '#14171b', text: '#d9d4c7', muted: '#6c6a64', user: '#3b3f48', ai: '#15181c', accent: '#ffb347', accentText: '#1b1205', input: '#101216', slot: '#000', stroke: '#22252b', sw: 1 },
+  label: { fill: '#d9d4c7', size: 11, upper: true, ls: 1.6, weight: 600, font: 'Bahnschrift, "Arial Narrow", sans-serif', wf: .66 },
+  bubble: { bg: '#ffb347', fg: '#1b1205', rx: 2 },
+  link: '#ffb347',
+  overlayMid: (k, t, S0) => {
+    if (!S0.active) return '';
+    const B = P(S0.active.x, S0.active.d, 0);
+    return `<polygon points="${r1(B[0] - 12)},0 ${r1(B[0] + 12)},0 ${r1(B[0] + 75)},${r1(B[1] + 12)} ${r1(B[0] - 75)},${r1(B[1] + 12)}" fill="url(#${k}-cone)"/><ellipse cx="${r1(B[0])}" cy="${r1(B[1])}" rx="80" ry="26" fill="url(#${k}-pool)"/>`;
+  },
+  overlay: k => `<rect width="${VW}" height="${VH}" fill="url(#${k}-vig)"/><rect width="${VW}" height="${VH}" filter="url(#${k}-grain)" opacity=".08"/><rect width="${VW}" height="28" fill="#000"/><rect y="${VH - 28}" width="${VW}" height="28" fill="#000"/>`,
+},
+];
+
+const gridEl = document.getElementById('grid'), pick = document.getElementById('pick');
+const cards = ST10.map((st, i) => {
+  const el = document.createElement('article');
+  el.className = 'card';
+  el.innerHTML = `<div class="stage"></div><div class="meta"><span class="num">${i + 1}</span><span class="name">${esc(st.name)}</span><span class="desc">${esc(st.desc)}</span><button type="button">Dieses wählen</button></div>`;
+  el.querySelector('button').onclick = () => {
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('sel'));
+    el.classList.add('sel');
+    pick.style.display = 'block';
+    pick.textContent = `Design ${i + 1} gewählt: ${st.name}. Schreib mir im Chat „Design ${i + 1}“.`;
+    navigator.clipboard?.writeText(`Design ${i + 1}`).catch(() => {});
+  };
+  gridEl.appendChild(el);
+  return { st, stage: el.querySelector('.stage'), on: false };
+});
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const io = new IntersectionObserver(es => es.forEach(e => { const c = cards.find(c => c.stage === e.target); if (c) c.on = e.isIntersecting; }), { rootMargin: '100px' });
+cards.forEach(c => { c.stage.innerHTML = render(c.st, 6.2); io.observe(c.stage); });
+if (!reduce) {
+  const t0 = performance.now(); let last = 0;
+  const loop = now => {
+    if (now - last > 33) { last = now; const t = (now - t0) / 1000; cards.forEach(c => { if (c.on) c.stage.innerHTML = render(c.st, t); }); }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
