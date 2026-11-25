@@ -1,0 +1,160 @@
+<title>Fließband Orchestrator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: eine animierte Szene (Orchestrator oben, Fließband mit Fable, Sonnet, Opus), darunter Statuszeile und Protokoll. Bewusst nur dunkel (Midnight-Neon). */
+:root{--bg:#0d0e24;--s1:#14163a;--s2:#1b1d48;--line:#2a2d62;--fg:#eceeff;--muted:#9ea4d6;
+--amber:#ffd84a;--violet:#c58bff;--green:#3dffa0;--orange:#ff9d3c;--rose:#ff5577;
+--font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,Menlo,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--font);margin:0;padding-block:28px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1040px;margin:auto;display:flex;flex-direction:column;gap:16px}
+h1{font-size:1.7rem;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.lead{color:var(--muted);margin:0;max-width:66ch}
+.stage-box{background:var(--s1);border:1px solid var(--line);border-radius:14px;overflow-x:auto}
+svg{display:block;width:100%;min-width:680px;height:auto}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:12px var(--mono);padding:4px 10px;border-radius:99px;border:1px solid var(--line);color:var(--muted);transition:.25s}
+.chip.on{color:#0d0e24;background:var(--orange);border-color:var(--orange);font-weight:600}
+.chip.done{color:var(--green);border-color:var(--green)}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+button,select{font:13px var(--font);background:var(--s2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+button:focus-visible,select:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+ul{list-style:none;margin:0;padding:12px 14px;background:var(--s1);border:1px solid var(--line);border-radius:12px;font:12.5px/1.7 var(--mono);color:var(--muted);min-height:9em}
+li:first-child{color:var(--fg)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:var(--c)}
+.mover{transform-box:fill-box;transform-origin:center}
+.bubble{opacity:0;transition:opacity .25s}
+.belt{stroke:var(--line);stroke-width:16;stroke-linecap:round}
+.beltdash{stroke:#5560c8;stroke-width:3;stroke-dasharray:6 14;stroke-linecap:round;animation:flow 1s linear infinite}
+.beltdash.back{animation-direction:reverse}
+.paused .beltdash{animation-play-state:paused}
+@keyframes flow{to{stroke-dashoffset:-20}}
+@media (prefers-reduced-motion:reduce){.beltdash{animation:none}}
+</style>
+<div class="wrap" id="app">
+<h1>Fließband Orchestrator</h1>
+<p class="lead">Entwurf für ein aktives Design: Der Orchestrator legt eine Aufgabe aufs Band. Fable liest sie, Sonnet schreibt den Entwurf, Opus macht den Feinschliff, Fable nimmt ab und schickt alles als PR zurück. Fragen und Hinweise wandern als Zettel.</p>
+<div class="chips" id="chips"></div>
+<div class="stage-box"><svg id="scene" viewBox="0 0 960 440" role="img" aria-label="Animierte Szene: Aufgabe läuft über ein Fließband von Fable über Sonnet und Opus zurück zu Fable und als PR zum Orchestrator"></svg></div>
+<div class="row">
+<button id="play" type="button">Pause</button>
+<label for="speed" style="font-size:13px;color:var(--muted)">Tempo</label>
+<select id="speed"><option value="0.6">langsam</option><option value="1" selected>normal</option><option value="1.8">schnell</option></select>
+<div class="legend"><span style="--c:var(--amber)">Aufgabe</span><span style="--c:var(--green)">Entwurf</span><span style="--c:var(--orange)">Final</span><span style="--c:var(--violet)">Pull Request</span><span style="--c:#f4f0d8">Zettel</span></div>
+</div>
+<ul id="log" aria-live="off"></ul>
+</div>
+<script>
+const NS='http://www.w3.org/2000/svg',svg=document.getElementById('scene');
+let paused=false,speed=1,n=0;
+const sleepRaw=ms=>new Promise(r=>setTimeout(r,ms));
+async function sleep(ms){await sleepRaw(ms/speed);while(paused)await sleepRaw(120)}
+function el(tag,a={},p=svg){const x=document.createElementNS(NS,tag);for(const k in a)x.setAttribute(k,a[k]);p.appendChild(x);return x}
+const C={amber:'#ffd84a',violet:'#c58bff',green:'#3dffa0',orange:'#ff9d3c',ink:'#0d0e24'};
+
+// Band: obere Spur nach rechts, untere Spur zurück
+[[300,''],[372,'back']].forEach(([y,c])=>{
+  el('line',{x1:150,y1:y,x2:780,y2:y,class:'belt'});
+  el('line',{x1:150,y1:y,x2:780,y2:y,class:'beltdash '+c});
+});
+el('path',{d:'M780 300 Q812 336 780 372',fill:'none',stroke:'#2a2d62','stroke-width':16,'stroke-linecap':'round'});
+for(let x=170;x<=770;x+=60){el('circle',{cx:x,cy:309,r:2.5,fill:'#3a3e82'});}
+
+function robot(name,color,x,y,scale=1,sub=''){
+  const g=el('g',{transform:`translate(${x},${y}) scale(${scale})`});
+  el('line',{x1:0,y1:-34,x2:0,y2:-22,stroke:color,'stroke-width':3},g);
+  el('circle',{cx:0,cy:-38,r:5,fill:color},g);
+  el('rect',{x:-22,y:-22,width:44,height:36,rx:9,fill:color},g);
+  el('circle',{cx:-8,cy:-6,r:4.5,fill:C.ink},g);el('circle',{cx:8,cy:-6,r:4.5,fill:C.ink},g);
+  el('rect',{x:-18,y:18,width:36,height:34,rx:8,fill:color,opacity:.82},g);
+  el('rect',{x:-30,y:22,width:9,height:24,rx:4,fill:color,opacity:.7},g);el('rect',{x:21,y:22,width:9,height:24,rx:4,fill:color,opacity:.7},g);
+  const t=el('text',{x:0,y:70,'text-anchor':'middle',fill:'#eceeff','font-size':13,'font-weight':600,'font-family':'Inter,system-ui,sans-serif'},g);t.textContent=name;
+  if(sub){const s=el('text',{x:0,y:84,'text-anchor':'middle',fill:'#9ea4d6','font-size':10.5,'font-family':'JetBrains Mono,monospace'},g);s.textContent=sub}
+  el('rect',{x:-24,y:90,width:48,height:4,rx:2,fill:'#2a2d62'},g);
+  const bar=el('rect',{x:-24,y:90,width:48,height:4,rx:2,fill:color,style:'transform-box:fill-box;transform-origin:left;transform:scaleX(0)'},g);
+  const bg=el('g',{class:'bubble',transform:`translate(${x},${y-62*scale})`});
+  const br=el('rect',{x:0,y:-14,width:10,height:24,rx:7,fill:'#eceeff'},bg);
+  const bt=el('text',{x:0,y:3,'text-anchor':'middle',fill:C.ink,'font-size':11.5,'font-weight':600,'font-family':'Inter,system-ui,sans-serif'},bg);
+  return{x,y,bar,bg,br,bt,scale};
+}
+const orch=robot('Orchestrator',C.amber,480,64,1.25);
+const fable=robot('Fable',C.violet,95,238,1,'liest · prüft');
+const sonnet=robot('Sonnet',C.green,340,196,1,'Entwurf');
+const opus=robot('Opus',C.orange,570,196,1,'Feinschliff');
+// Schreibtisch des Orchestrators
+el('rect',{x:420,y:128,width:120,height:10,rx:5,fill:'#2a2d62'});
+
+async function say(r,text,ms=1500){
+  r.bt.textContent=text;const w=r.bt.getBBox().width+22;
+  r.br.setAttribute('width',w);r.br.setAttribute('x',-w/2);
+  r.bg.style.opacity=1;await sleep(ms);r.bg.style.opacity=0;
+}
+async function work(r,ms){
+  r.bar.style.transition='none';r.bar.style.transform='scaleX(0)';r.bar.getBoundingClientRect();
+  r.bar.style.transition=`transform ${ms/speed}ms linear`;r.bar.style.transform='scaleX(1)';
+  await sleep(ms);
+  r.bar.style.transition='none';r.bar.style.transform='scaleX(0)';
+}
+function mover(){return el('g',{class:'mover',style:'opacity:0'})}
+const pkg=mover();
+const pr=el('rect',{x:-22,y:-16,width:44,height:32,rx:7,fill:C.amber},pkg);
+const pt=el('text',{x:0,y:5,'text-anchor':'middle','font-size':11,'font-weight':700,fill:C.ink,'font-family':'Inter,system-ui,sans-serif'},pkg);
+function setPkg(txt,color){pt.textContent=txt;pr.setAttribute('fill',color)}
+function put(e,x,y,vis=1,rot=0){e.style.transition='none';e.style.transform=`translate(${x}px,${y}px) rotate(${rot}deg)`;e.style.opacity=vis;e.getBoundingClientRect()}
+function go(e,x,y,ms=1200,rot=0){e.style.transition=`transform ${ms/speed}ms ease-in-out, opacity .3s`;e.style.transform=`translate(${x}px,${y}px) rotate(${rot}deg)`;return sleep(ms)}
+function zettel(sym){
+  const z=mover();
+  el('rect',{x:-13,y:-10,width:26,height:20,rx:3,fill:'#f4f0d8'},z);
+  el('line',{x1:-8,y1:-3,x2:8,y2:-3,stroke:'#b9b28a','stroke-width':1.5},z);
+  const t=el('text',{x:0,y:7,'text-anchor':'middle','font-size':10,'font-weight':700,fill:C.ink,'font-family':'Inter,sans-serif'},z);t.textContent=sym;
+  return z;
+}
+async function note(from,to,sym,ms=1100){
+  const z=zettel(sym);put(z,from.x,from.y-40,1,-8);
+  await go(z,to.x,to.y-40,ms,8);z.style.opacity=0;setTimeout(()=>z.remove(),400);
+}
+const chipsEl=document.getElementById('chips');
+const stages=['1 Aufgabe → Fable','2 Sonnet: Entwurf','3 Opus: Feinschliff','4 Fable: Abnahme','5 PR → Orchestrator'];
+stages.forEach(s=>{const c=document.createElement('span');c.className='chip';c.textContent=s;chipsEl.appendChild(c)});
+function stage(i){[...chipsEl.children].forEach((c,j)=>{c.className='chip'+(j<i?' done':j===i?' on':'')})}
+const logEl=document.getElementById('log');
+function log(t){const li=document.createElement('li');li.textContent=t;logEl.prepend(li);while(logEl.children.length>8)logEl.lastChild.remove()}
+
+async function cycle(){
+  n++;
+  stage(0);log(`Orchestrator legt Aufgabe #${n} aufs Band`);
+  setPkg('Aufgabe',C.amber);put(pkg,480,150,0);await sleep(50);
+  pkg.style.opacity=1;await go(pkg,170,300,1500);
+  log('Fable liest die Anfrage');await say(fable,'Ich lese die Anfrage …',1700);
+
+  stage(1);log('Fable reicht die Aufgabe an Sonnet');
+  await go(pkg,340,300,1500);setPkg('Entwurf',C.green);
+  const w1=work(sonnet,3200);
+  await sleep(1000);log('Sonnet schickt einen Zettel: Frage an den Orchestrator');
+  await note(sonnet,orch,'?');await say(orch,'Nimm Variante B',1300);
+  log('Orchestrator antwortet per Zettel');await note(orch,sonnet,'B');await w1;
+
+  stage(2);log('Sonnet gibt den Entwurf an Opus');
+  await go(pkg,570,300,1500);setPkg('Final',C.orange);
+  const w2=work(opus,3000);
+  await sleep(800);log('Orchestrator schickt einen Zettel an Opus: Hinweis zur Frist');
+  await note(orch,opus,'!');await w2;
+
+  stage(3);log('Opus gibt zurück an Fable');
+  await go(pkg,770,300,1300);await go(pkg,770,372,500);await go(pkg,170,372,2200);
+  log('Fable macht die Prüfabnahme');await say(fable,'Prüfe die Abnahme …',1600);await say(fable,'Abgenommen ✓',1000);
+
+  stage(4);setPkg('PR',C.violet);log('Fable bündelt alles und schickt einen Pull Request');
+  await go(pkg,480,150,1900);log(`Orchestrator: PR #${n} gemergt ✓`);await say(orch,`PR #${n} gemergt ✓`,1800);
+  pkg.style.opacity=0;[...chipsEl.children].forEach(c=>c.className='chip done');await sleep(1200);
+}
+async function loop(){while(true){await cycle()}}
+
+const playBtn=document.getElementById('play'),app=document.getElementById('app');
+function setPaused(p){paused=p;playBtn.textContent=p?'Abspielen':'Pause';app.classList.toggle('paused',p)}
+playBtn.addEventListener('click',()=>setPaused(!paused));
+document.getElementById('speed').addEventListener('change',e=>{speed=parseFloat(e.target.value)});
+if(window.matchMedia('(prefers-reduced-motion:reduce)').matches)setPaused(true);
+loop();
+</script>

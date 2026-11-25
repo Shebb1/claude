@@ -1,0 +1,97 @@
+<title>Midnight Neon</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: two live previews (hell / dunkel) side by side, palette swatches under each. */
+:root{--bg:#eef0f7;--fg:#0b1030;--muted:#4a5280;--line:#cfd3e6;
+--font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,Menlo,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#07081a;--fg:#eceeff;--muted:#9ea4d6;--line:#23264f;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#07081a;--fg:#eceeff;--muted:#9ea4d6;--line:#23264f;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--font);margin:0;padding-block:32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1100px;margin:auto}
+h1{font-size:1.9rem;margin:0 0 4px;text-wrap:balance;letter-spacing:-.01em}
+.lead{color:var(--muted);margin:0 0 28px;max-width:62ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:20px}
+.col{min-width:0;display:flex;flex-direction:column;gap:12px}
+.label{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.panel{border-radius:14px;padding:18px;background:var(--s0);color:var(--t1);border:1px solid var(--bd);display:flex;flex-direction:column;gap:12px;min-width:0}
+.light{--s0:#f4f6fc;--s1:#fafbff;--s2:#ffffff;--t1:#0b1030;--t2:#2d3560;--t3:#4a5280;--bd:#d5daee;--ac:#2354e6;--acfg:#fff;--dg:#c81e3a;--ok:#12803f;--wn:#b45309;--pr:#6d28d9;--addbg:#dcf5e5;--delbg:#fbe0e5}
+.dark{--s0:#0d0e24;--s1:#14163a;--s2:#1b1d48;--t1:#eceeff;--t2:#c3c7f0;--t3:#9ea4d6;--bd:#2a2d62;--ac:#ff9d3c;--acfg:#1a0f00;--dg:#ff5577;--ok:#3dffa0;--wn:#ffd84a;--pr:#c58bff;--addbg:#10372c;--delbg:#3d1530}
+.bar{display:flex;justify-content:space-between;font-size:.78rem;color:var(--t3);font-family:var(--mono)}
+.user{align-self:flex-end;background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:10px 14px;max-width:85%;color:var(--t1)}
+.ai{background:var(--s1);border-radius:12px;padding:12px 14px;color:var(--t2);line-height:1.55}
+.ai b{color:var(--t1)}
+.tool{display:flex;gap:10px;align-items:center;font-family:var(--mono);font-size:.8rem;background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:7px 10px;color:var(--t3);flex-wrap:wrap}
+.pill{border-radius:99px;padding:1px 9px;font-size:.72rem;font-weight:600}
+.p-ok{color:var(--ok);border:1px solid var(--ok)}
+.p-ac{background:var(--ac);color:var(--acfg)}
+pre{margin:0;background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:12px;font:12.5px/1.6 var(--mono);overflow-x:auto;color:var(--t1)}
+.k{color:var(--ac)}.s{color:var(--ok)}.n{color:var(--pr)}.v{color:var(--wn)}.e{color:var(--dg)}.c{color:var(--t3)}
+.add{background:var(--addbg);display:block}.del{background:var(--delbg);display:block}
+.input{border:1px solid var(--ac);border-radius:10px;padding:10px 12px;background:var(--s2);color:var(--t3)}
+.sw{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.sw div{border-radius:8px;border:1px solid var(--line);overflow:hidden;font:11px/1.35 var(--mono);color:var(--muted)}
+.sw i{display:block;height:34px}
+.sw span{display:block;padding:4px 6px}
+.note{margin-top:28px;color:var(--muted);font-size:.9rem;max-width:70ch}
+</style>
+<div class="wrap">
+<h1>Midnight Neon</h1>
+<p class="lead">Entwurf für dein Claude-Code-Theme. Links der helle Modus, rechts der dunkle. Das Theme folgt automatisch dem System.</p>
+<div class="grid">
+
+<div class="col">
+<div class="label">Hell · schlicht, kontrastreich, strahlend</div>
+<div class="panel light">
+<div class="bar"><span>claude · sitzung</span><span>14:20</span></div>
+<div class="user">Baue eine Funktion, die Rechnungen nach Datum sortiert.</div>
+<div class="ai">Ich sortiere <b>invoices</b> nach <b>dueDate</b> und lasse bezahlte Rechnungen am Ende.</div>
+<div class="tool"><span class="pill p-ok">fertig</span> Edit src/invoices.ts <span class="pill p-ac">+4 −1</span></div>
+<pre><span class="c">// src/invoices.ts</span>
+<span class="k">export function</span> <span class="n">sortInvoices</span>(<span class="v">list</span>: Invoice[]) {
+  <span class="k">return</span> <span class="v">list</span>.<span class="n">sort</span>((a, b) =&gt;
+    <span class="v">a</span>.due - <span class="v">b</span>.due)
+}
+<span class="del">- return list</span>
+<span class="add">+ return [...list].sort(byDue)</span></pre>
+<div class="input">Nachricht an Claude …</div>
+</div>
+<div class="sw">
+<div><i style="background:#f4f6fc"></i><span>Seite<br>#f4f6fc</span></div>
+<div><i style="background:#ffffff"></i><span>Panel<br>#ffffff</span></div>
+<div><i style="background:#0b1030"></i><span>Text<br>#0b1030</span></div>
+<div><i style="background:#2354e6"></i><span>Akzent<br>#2354e6</span></div>
+<div><i style="background:#12803f"></i><span>Erfolg<br>#12803f</span></div>
+<div><i style="background:#c81e3a"></i><span>Fehler<br>#c81e3a</span></div>
+</div>
+</div>
+
+<div class="col">
+<div class="label">Dunkel · Mitternachtsblau/-lila, Neon-Komplementär</div>
+<div class="panel dark">
+<div class="bar"><span>claude · sitzung</span><span>23:40</span></div>
+<div class="user">Baue eine Funktion, die Rechnungen nach Datum sortiert.</div>
+<div class="ai">Ich sortiere <b>invoices</b> nach <b>dueDate</b> und lasse bezahlte Rechnungen am Ende.</div>
+<div class="tool"><span class="pill p-ok">fertig</span> Edit src/invoices.ts <span class="pill p-ac">+4 −1</span></div>
+<pre><span class="c">// src/invoices.ts</span>
+<span class="k">export function</span> <span class="n">sortInvoices</span>(<span class="v">list</span>: Invoice[]) {
+  <span class="k">return</span> <span class="v">list</span>.<span class="n">sort</span>((a, b) =&gt;
+    <span class="v">a</span>.due - <span class="v">b</span>.due)
+}
+<span class="del">- return list</span>
+<span class="add">+ return [...list].sort(byDue)</span></pre>
+<div class="input">Nachricht an Claude …</div>
+</div>
+<div class="sw">
+<div><i style="background:#0d0e24"></i><span>Seite<br>#0d0e24</span></div>
+<div><i style="background:#1b1d48"></i><span>Panel<br>#1b1d48</span></div>
+<div><i style="background:#eceeff"></i><span>Text<br>#eceeff</span></div>
+<div><i style="background:#ff9d3c"></i><span>Neon-Orange<br>#ff9d3c</span></div>
+<div><i style="background:#3dffa0"></i><span>Neon-Grün<br>#3dffa0</span></div>
+<div><i style="background:#c58bff"></i><span>Neon-Violett<br>#c58bff</span></div>
+</div>
+</div>
+
+</div>
+<p class="note">Das ist eine Vorschau der Farben und der Stimmung. Das echte Theme zeichnet nur der Desktop- und Mobile-Client, nicht das Terminal. Sag mir, was du ändern willst, zum Beispiel einen anderen Akzent, mehr Violett statt Blau oder weniger Neon.</p>
+</div>
