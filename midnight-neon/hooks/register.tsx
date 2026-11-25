@@ -41,8 +41,6 @@ const { theme, problems } = makeColors({
 const LOOK: ThemeSetArgs = { colors: theme }
 const PANE = 'halle'
 const TITLE = 'Halle 3'
-// How long the drawing animates a trip along the belt before it stands still.
-const TRIP_MS = 6000
 
 const EMPTY: FloorState = {
   phase: 'idle',
@@ -52,13 +50,14 @@ const EMPTY: FloorState = {
   from: -1,
   moving: false,
   movedAt: 0,
+  playbook: false,
   stamps: [],
   workers: [],
   counts: { done: 0, tools: 0 },
   log: [],
 }
 
-const floor = atom({ plugin: 'midnight-neon', key: 'floor' } as const, EMPTY, { shape: 'floor-3' })
+const floor = atom({ plugin: 'midnight-neon', key: 'floor' } as const, EMPTY, { shape: 'floor-4' })
 const design = atom({ plugin: 'midnight-neon', key: 'design' } as const, DEFAULT_DESIGN, { shape: 'design-1' })
 // The drawing's size in percent of what the pane's cells suggest. The engine
 // gives a pane's size in text cells, not pixels: CELL_W and CELL_H are the
@@ -101,10 +100,12 @@ const stationName = (i: number): string => STATIONS[i]?.name ?? 'Agent'
 const logged = (s: FloorState, line: string): string[] => [...s.log, line].slice(-5)
 const worker = (s: FloorState, id: string, fn: (w: FloorWorker) => FloorWorker): FloorWorker[] =>
   s.workers.map(w => (w.id === id ? fn(w) : w))
-// Sends the package to a station. The belt only runs one way: the drawing takes
-// it the long way round when the station lies behind.
+// Where a plain question goes: the station of the model chosen in the chat.
+const HOME: Record<FloorModel, number> = { fable: 0, opus: 1, haiku: 2, sonnet: 3, other: 3 }
+// Sends the package on to a station further down the belt, in the board's
+// order; it never runs backwards. The drawing times the trip from `movedAt`.
 const moveTo = (s: FloorState, to: number): FloorState =>
-  to === s.pkg ? s : { ...s, from: s.pkg, pkg: to, moving: true, movedAt: Date.now(), stamps: s.pkg >= 0 && !s.stamps.includes(s.pkg) ? [...s.stamps, s.pkg] : s.stamps }
+  to <= s.pkg ? s : { ...s, from: s.pkg, pkg: to, moving: true, movedAt: Date.now(), stamps: s.pkg >= 0 && !s.stamps.includes(s.pkg) ? [...s.stamps, s.pkg] : s.stamps }
 
 // The scene is decoration: a failed write must never get in the way of a turn or a tool.
 const safely = async ($: EngineInterface, fn: (s: FloorState) => FloorState): Promise<void> => {
@@ -113,14 +114,6 @@ const safely = async ($: EngineInterface, fn: (s: FloorState) => FloorState): Pr
   } catch (error) {
     $.ui.log(`midnight-neon: ${String(error)}`)
   }
-}
-// One timer for the current trip: a newer trip cancels the older one's stop.
-let trip: { cancel: () => void } | undefined
-const settle = ($: EngineInterface): void => {
-  trip?.cancel()
-  trip = $.clock.after(TRIP_MS, () => {
-    void safely($, s => (s.moving ? { ...s, moving: false } : s))
-  })
 }
 
 export const register: Register = on => {
@@ -171,28 +164,30 @@ export const register: Register = on => {
     return { text: 'Halle 3 ist geöffnet.' }
   })
 
-  // Your message lands on the belt as a package and rolls to the planners.
+  // Your message lands on the belt as a package. A plain question goes straight
+  // to the model chosen in the chat and waits there while it works.
   on('turn.start', async ($, e, next) => {
     if (e.agentId === undefined) {
+      const chosen = family(await $.session.model().catch(() => ''))
+
       await safely($, s => ({
         ...EMPTY,
         phase: 'work',
         task: e.text.replace(/\s+/g, ' ').slice(0, 80),
-        pkg: 0,
+        pkg: HOME[chosen],
         from: -1,
         moving: true,
         movedAt: Date.now(),
         counts: s.counts,
-        workers: s.workers.filter(w => w.status === 'run'),
-        log: logged(s, 'Auftrag liegt auf dem Band'),
+        log: logged(s, `Auftrag geht an ${stationName(HOME[chosen])}`),
       }))
-      settle($)
     }
 
     return next(e)
   })
 
-  // A subagent starts at its model's station; the package rolls there.
+  // A subagent makes the job a playbook: the package starts over at the chat
+  // and visits the models' stations in the board's order, one after the other.
   on('agent.spawn', async ($, e, next) => {
     const started = await next(e)
     const id = 'agentId' in started ? started.agentId : undefined
@@ -201,17 +196,16 @@ export const register: Register = on => {
       const model = family('model' in started && typeof started.model === 'string' ? started.model : '')
 
       await safely($, s => {
-        const station = stationFor(model, s)
-        const moved = moveTo(s, station)
+        const base: FloorState = s.playbook ? s : { ...s, playbook: true, pkg: -1, from: -1, stamps: [] }
+        const station = stationFor(model, base)
 
         return {
-          ...moved,
+          ...moveTo(base, station),
           phase: 'work',
-          workers: [...s.workers.filter(w => w.id !== id), { id, model, label: e.description.slice(0, 40), station, status: 'run' as const, tool: '' }].slice(-12),
-          log: logged(s, `${stationName(station)}: ${e.description.slice(0, 40)}`),
+          workers: [...base.workers.filter(w => w.id !== id), { id, model, label: e.description.slice(0, 40), station, status: 'run' as const, tool: '' }].slice(-12),
+          log: logged(base, `${stationName(station)}: ${e.description.slice(0, 40)}`),
         }
       })
-      settle($)
     }
 
     return started
@@ -238,7 +232,8 @@ export const register: Register = on => {
   })
 
   // A turn ends. A subagent's: its station is done and stamps the package.
-  // The main loop's: the package rides back into the chat.
+  // The main loop's: the answer is in the chat already, and the package rides
+  // the rest of the belt back to it at its own pace.
   on('turn.complete', async ($, e, next) => {
     const id = e.agentId
 
@@ -250,9 +245,8 @@ export const register: Register = on => {
         phase: ok ? ('done' as const) : ('stopped' as const),
         orchTool: '',
         workers: s.workers.filter(w => w.status !== 'run'),
-        log: logged(s, ok ? 'Ergebnis zurück im Chat' : 'Auftrag abgebrochen'),
+        log: logged(s, ok ? 'Antwort im Chat, Paket rollt aus' : 'Auftrag abgebrochen'),
       }))
-      settle($)
 
       return next(e)
     }
@@ -277,7 +271,6 @@ export const register: Register = on => {
 
       return still !== undefined && after.pkg === who.station ? moveTo(after, still.station) : after
     })
-    settle($)
 
     return next(e)
   })

@@ -21,6 +21,8 @@ export type FloorState = {
   moving: boolean
   // When that trip began, in ms since the epoch: a redraw resumes it there.
   movedAt: number
+  // True once a subagent joined: the job then follows the board's order.
+  playbook: boolean
   stamps: number[]
   workers: FloorWorker[]
   counts: { done: number; tools: number }

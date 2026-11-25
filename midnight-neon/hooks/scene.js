@@ -296,7 +296,8 @@ function trip(from, to, elapsed = 0) {
   const ahead = s1 > s0
   const path = ahead ? run(s0, s1) : run(s0, PATH.L) + ' ' + run(0, s1)
   const len = ahead ? s1 - s0 : PATH.L - s0 + s1
-  const dur = Math.max(0.8, Math.min(4.5, len / 3.2))
+  // To a station: brisk. The last ride into the chat: at the belt's own pace.
+  const dur = to > 5 ? Math.max(2.5, len / 2.2) : Math.max(0.8, Math.min(4.5, len / 3.2))
   // A negative begin resumes a trip already under way: a redraw never restarts it.
   return { dur, svg: `<animateMotion begin="${(-elapsed).toFixed(2)}s" dur="${dur.toFixed(2)}s" fill="freeze" calcMode="paced" path="${path}"/>` }
 }
@@ -382,7 +383,7 @@ function boardSvg(st, state, active) {
   const font = `font-family="${st.font}"`
   s += `<text x="${r1(tl[0] + 18)}" y="${r1(tl[1] + 32)}" font-size="21" font-weight="700" fill="${c.text}" ${font}>Fortschritt</text>`
   const done = state.phase === 'done', stopped = state.phase === 'stopped'
-  const passed = i => state.stamps.includes(i) || (state.pkg > i && state.pkg <= 6)
+  const passed = i => state.stamps.includes(i)
   const status = (step, n) => {
     if (state.phase === 'idle') return 'wait'
     if (n === 0) return 'done'
@@ -686,7 +687,7 @@ function activity(state) {
     counts.set(w.station, (counts.get(w.station) || 0) + 1)
     if (!active.has(w.station) || w.tool) active.set(w.station, w.tool)
   }
-  if (state.phase === 'work' && active.size === 0 && state.pkg >= 0 && state.pkg <= 5) active.set(state.pkg, '')
+  if (state.phase === 'work' && active.size === 0 && state.pkg >= 0 && state.pkg <= 5) active.set(state.pkg, state.orchTool)
   return { active, counts }
 }
 
@@ -703,15 +704,18 @@ export function renderScene(state, design, note = '', mode = '', now = 0) {
     // The package: at a station, or riding back into the chat once. While it
     // travels it is drawn above the belt, so the rails never cover it.
     let riding = ''
-    if (state.pkg >= 0 && (state.pkg <= 5 || state.moving)) {
+    // The trip is timed from `movedAt` alone: no timer has to end it, and a
+    // redraw picks it up where it is. Without a clock (a preview) it starts fresh.
+    const elapsed = state.moving && state.movedAt && now ? Math.max(0, (now - state.movedAt) / 1000) : 0
+    const t = state.moving ? trip(state.from, state.pkg, elapsed) : { svg: '', dur: 0 }
+    const live = state.moving && t.dur > 0 && elapsed < t.dur + 0.6
+    if (state.pkg >= 0 && (state.pkg <= 5 || live)) {
       const end = state.pkg > 5 ? { x: XS, d: Y1 } : { x: ST[state.pkg].bx, d: ST[state.pkg].bd }
       let g = pkgSvg(st, end, state.stamps, col)
-      const elapsed = state.moving && state.movedAt && now ? Math.max(0, (now - state.movedAt) / 1000) : 0
-      const t = state.moving ? trip(state.from, state.pkg, elapsed) : { svg: '', dur: 0 }
-      g += t.svg
+      if (live) g += t.svg
       if (state.pkg > 5) g += `<animate attributeName="opacity" from="1" to="0" begin="${(t.dur - 0.3 - elapsed).toFixed(2)}s" dur="0.5s" fill="freeze"/>`
       const svg = `<g${st.pkg.filter ? ` filter="url(#${k}-${st.pkg.filter})"` : ''}>${g}</g>`
-      if (state.moving) riding = svg
+      if (live) riding = svg
       else items.push({ d: end.d - 0.3, x: end.x, svg })
     }
     items.sort((a, b) => b.d - a.d || a.x - b.x)

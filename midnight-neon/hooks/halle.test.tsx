@@ -17,6 +17,8 @@ const PANE = {
 test('a message puts the package at the planners, the picker switches designs', async ($, on) => {
   on('command.register', () => ({ value: { command: 'halle' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
+  // The model chosen in the chat: a plain question goes to its station.
+  on('session.model', () => ({ value: 'claude-fable-5-2' }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('turn.start', () => ({ turnId: 't1' }))
   on('store.set', () => ({ value: undefined }))
