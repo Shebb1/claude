@@ -170,17 +170,27 @@ export const register: Register = on => {
     return next(e)
   })
 
-  // A subagent hands its result back: the report flies to the orchestrator.
-  on('agent.report', async ($, e, next) => {
+  // A turn ends. A subagent's own turn: its figure is done and the report flies to
+  // the orchestrator. The main loop's: everything goes back as one bundle.
+  on('turn.complete', async ($, e, next) => {
     const id = e.agentId
+
+    if (id === undefined) {
+      await safely($, s => ({ ...s, phase: 'done', orchTool: '', prFresh: true, log: logged(s, 'Orchestrator nimmt das Ergebnis an') }))
+      $.clock.after(1900, () => {
+        void safely($, s => ({ ...s, prFresh: false }))
+      })
+
+      return next(e)
+    }
+    const isDone = e.reason === 'answer'
 
     await safely($, s => {
       const who = s.workers.find(w => w.id === id)
 
-      if (who === undefined) {
+      if (who === undefined || who.status !== 'run') {
         return s
       }
-      const isDone = e.status === 'completed'
 
       return {
         ...s,
@@ -193,18 +203,6 @@ export const register: Register = on => {
     $.clock.after(1700, () => {
       void safely($, s => ({ ...s, note: null }))
     })
-
-    return next(e)
-  })
-
-  // The main loop answers: everything goes back to the orchestrator as one bundle.
-  on('turn.complete', async ($, e, next) => {
-    if (e.agentId === undefined) {
-      await safely($, s => ({ ...s, phase: 'done', orchTool: '', prFresh: true, log: logged(s, 'Orchestrator nimmt das Ergebnis an') }))
-      $.clock.after(1900, () => {
-        void safely($, s => ({ ...s, prFresh: false }))
-      })
-    }
 
     return next(e)
   })

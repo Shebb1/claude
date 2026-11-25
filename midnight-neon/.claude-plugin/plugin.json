@@ -1,1 +1,1 @@
-{ "name": "midnight-neon", "version": "0.2.0", "description": "Tagsüber helle Claude-Farben, abends Mitternachts-Neon. Dazu eine Fabrikhalle, in der Figuren live zeigen, was Orchestrator und Agenten tun.", "types": "./types/index.d.ts" }
+{ "name": "midnight-neon", "version": "0.2.1", "description": "Tagsüber helle Claude-Farben, abends Mitternachts-Neon. Dazu eine Fabrikhalle, in der Figuren live zeigen, was Orchestrator und Agenten tun.", "types": "./types/index.d.ts" }

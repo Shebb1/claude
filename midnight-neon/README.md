@@ -14,7 +14,7 @@ Claude-Code-Theme (Mod). Folgt dem Hell/Dunkel-Modus des Systems.
 | Agent startet | Figur mit Hut ihres Modells bezieht eine Station, Kiste rollt an |
 | Werkzeugaufruf | Sprechblase mit dem Werkzeug über der Figur |
 | SendMessage, AskUserQuestion | Zettel fliegt |
-| Agent berichtet | Figur ist fertig, Bericht fliegt zum Orchestrator |
+| Agent beendet seinen Lauf | Figur ist fertig, Bericht fliegt zum Orchestrator |
 | Turn endet | Gebündeltes Ergebnis landet beim Orchestrator |
 
 Farben und Szene zeichnen nur Desktop- und Mobile-Client. Im Terminal zeigt das Panel eine Textliste.
