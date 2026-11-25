@@ -404,7 +404,8 @@ function boardSvg(st, state, active) {
 
 // ---------- shared pieces ----------
 function baseDefs(k) {
-  return `<filter id="${k}-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4"/></filter>` +
+  return `<filter id="flip" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="-1 0 0 0 1  0 -1 0 0 1  0 0 -1 0 1  0 0 0 1 0"/><feColorMatrix type="hueRotate" values="180"/></filter>` +
+    `<filter id="${k}-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4"/></filter>` +
     `<filter id="${k}-glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>` +
     `<filter id="${k}-drop" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="3" dy="4" stdDeviation="2.5" flood-color="#5b4630" flood-opacity=".35"/></filter>` +
     `<radialGradient id="${k}-shine" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1d10" stop-opacity=".28"/></radialGradient>`
@@ -514,7 +515,7 @@ export const DESIGNS = [
   },
 },
 {
-  k: 'knete', name: 'Knetfiguren', font: "'Segoe UI Rounded', Nunito, ui-rounded, system-ui, sans-serif",
+  k: 'knete', light: true, name: 'Knetfiguren', font: "'Segoe UI Rounded', Nunito, ui-rounded, system-ui, sans-serif",
   col: { fable: '#ffc857', opus: '#ff8a65', sonnet: '#7aa7ff', haiku: '#6fd3a1', orch: '#b79cff' },
   defs: k => `<radialGradient id="${k}-bg" cx="50%" cy="35%" r="80%"><stop offset="0" stop-color="#fff1e6"/><stop offset="1" stop-color="#f4c9b8"/></radialGradient>`,
   bg: k => `<rect width="${VW}" height="${VH}" fill="url(#${k}-bg)"/>`,
@@ -532,7 +533,7 @@ export const DESIGNS = [
   link: '#b79cff',
 },
 {
-  k: 'voxel', name: 'Blockwelt', font: "'Cascadia Mono', ui-monospace, monospace",
+  k: 'voxel', light: true, name: 'Blockwelt', font: "'Cascadia Mono', ui-monospace, monospace",
   col: { fable: '#f2b632', opus: '#d4542c', sonnet: '#3c78d8', haiku: '#46b04a', orch: '#9b59d0' },
   defs: k => `<linearGradient id="${k}-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fbcf7"/><stop offset="1" stop-color="#cdeeff"/></linearGradient>`,
   bg: k => { let s = `<rect width="${VW}" height="${VH}" fill="url(#${k}-bg)"/><rect x="20" y="130" width="56" height="56" fill="#fff3a6"/>`; for (const [x, y, w] of [[110, 150, 110], [30, 250, 90], [40, 420, 70]]) s += `<g><rect x="${x}" y="${y}" width="${w}" height="22" fill="#ffffff"/><rect x="${x + 20}" y="${y - 14}" width="${w * 0.5}" height="14" fill="#ffffff"/><animateTransform attributeName="transform" type="translate" values="0 0;40 0;0 0" dur="30s" repeatCount="indefinite"/></g>`; return s },
@@ -549,7 +550,7 @@ export const DESIGNS = [
   link: '#ffffff',
 },
 {
-  k: 'papier', name: 'Papierschnitt', font: "Georgia, 'Iowan Old Style', serif",
+  k: 'papier', light: true, name: 'Papierschnitt', font: "Georgia, 'Iowan Old Style', serif",
   col: { fable: '#d9a441', opus: '#c8553d', sonnet: '#3e6fa8', haiku: '#5c9a6b', orch: '#7a5ea8' },
   defs: k => `<filter id="${k}-grain"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 .35  0 0 0 0 .28  0 0 0 0 .2  0 0 0 .5 0"/></filter>`,
   bg: () => `<rect width="${VW}" height="${VH}" fill="#ece1cc"/>`,
@@ -599,7 +600,7 @@ export const DESIGNS = [
   overlay: k => `<rect y="-120" width="${VW}" height="120" fill="url(#${k}-scan)"><animate attributeName="y" from="-120" to="${VH}" dur="5s" repeatCount="indefinite"/></rect>`,
 },
 {
-  k: 'holz', name: 'Holzspielzeug', font: "'Segoe UI', system-ui, sans-serif",
+  k: 'holz', light: true, name: 'Holzspielzeug', font: "'Segoe UI', system-ui, sans-serif",
   col: { fable: '#e8a628', opus: '#d6452f', sonnet: '#2f6fd6', haiku: '#2e9e5b', orch: '#8a4fc7' },
   defs: k => `<linearGradient id="${k}-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9eef2"/><stop offset="1" stop-color="#cfd8df"/></linearGradient>` +
     `<linearGradient id="${k}-woodv" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c9955c"/><stop offset=".45" stop-color="#f0cc98"/><stop offset="1" stop-color="#b9824a"/></linearGradient>` +
@@ -676,7 +677,7 @@ function activity(state) {
   return { active, counts }
 }
 
-export function renderScene(state, design, note = '') {
+export function renderScene(state, design, note = '', mode = '') {
   const st = DESIGNS.find(d => d.k === design) || DESIGNS[0]
   SNAP = st.snap || 0
   try {
@@ -702,6 +703,9 @@ export function renderScene(state, design, note = '') {
     items.sort((a, b) => b.d - a.d || a.x - b.x)
     let out = `<svg viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"${st.snap ? ' shape-rendering="crispEdges"' : ''}>`
     out += `<defs>${baseDefs(k)}${st.defs ? st.defs(k) : ''}</defs>`
+    // A design is drawn in its own mode; the other one is its luminance flipped, hues kept.
+    const flip = (mode === 'hell' || mode === 'dunkel') && (mode === 'hell') !== (st.light === true)
+    if (flip) out += '<g filter="url(#flip)">'
     out += st.bg(k) + st.floor(k)
     if (st.beltShadow) out += `<polygon points="${pts([...PATH.outer.map(q => P(q[0] + 0.15, q[1] - 0.1, 0)), ...PATH.inner.slice().reverse().map(q => P(q[0] + 0.15, q[1] - 0.1, 0))])}" fill="${st.beltShadow}" filter="url(#${k}-blur)"/>`
     out += wallSvg(st) + boardSvg(st, state, active)
@@ -721,7 +725,7 @@ export function renderScene(state, design, note = '') {
     if (st.overlay) out += st.overlay(k, state)
     out += logSvg(st, state.log) + headerSvg(st, state)
     if (note) out += `<text x="${VW - 12}" y="${VH - 8}" text-anchor="end" font-size="11" fill="${st.label.fill}" opacity=".45" font-family="${st.font}">${esc(note)}</text>`
-    return out + '</svg>'
+    return out + (flip ? '</g>' : '') + '</svg>'
   } finally {
     SNAP = 0
   }

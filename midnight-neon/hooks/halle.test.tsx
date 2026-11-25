@@ -34,5 +34,8 @@ test('a message puts the package at the planners, the picker switches designs', 
   expect((await ui.find({ type: 'Select', key: 'design' }))?.props.value).toBe('claude')
   await ui.select({ key: 'design', value: 'neon' })
   expect((await ui.find({ type: 'Select', key: 'design' }))?.props.value).toBe('neon')
+  expect((await ui.find({ type: 'Button', key: 'mode' }))?.text).toBe('☀ Hell')
+  await ui.press({ key: 'mode' })
+  expect((await ui.find({ type: 'Button', key: 'mode' }))?.text).toBe('☾ Dunkel')
   await ui.unmount()
 })

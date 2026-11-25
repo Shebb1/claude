@@ -67,6 +67,10 @@ const CELL_W = 8
 const CELL_H = 20
 const zoom = atom({ plugin: 'midnight-neon', key: 'zoom' } as const, 100, { shape: 'zoom-1' })
 const isZoom = (v: unknown): v is number => typeof v === 'number' && ZOOMS.includes(v)
+// Light or dark hall: every design has both, its own and the flipped one.
+type Mode = 'hell' | 'dunkel'
+const mode = atom({ plugin: 'midnight-neon', key: 'mode' } as const, 'dunkel' as Mode, { shape: 'mode-1' })
+const isMode = (v: unknown): v is Mode => v === 'hell' || v === 'dunkel'
 const isDesign = (v: unknown): v is string => typeof v === 'string' && DESIGNS.some(d => d.k === v)
 
 const family = (model: string): FloorModel => {
@@ -126,6 +130,11 @@ export const register: Register = on => {
 
       if (isDesign(stored)) {
         await update($, design, () => stored)
+      }
+      const lit = await $.store.get('mode')
+
+      if (isMode(lit)) {
+        await update($, mode, () => lit)
       }
       const size = await $.store.get('zoom')
 
@@ -269,9 +278,11 @@ export const register: Register = on => {
     const state = await read($, floor)
     const chosen = await read($, design)
     const current = isDesign(chosen) ? chosen : DEFAULT_DESIGN
+    const litNow = await read($, mode)
+    const shade: Mode = isMode(litNow) ? litNow : 'dunkel'
     const sized = await read($, zoom)
     const percent = isZoom(sized) ? sized : 100
-    const { Box, Select, Text } = $.ui.resolve(e)
+    const { Box, Button, Select, Text } = $.ui.resolve(e)
     const picker = (
       <Select
         key="design"
@@ -300,7 +311,7 @@ export const register: Register = on => {
       // picker sits on the drawing, the log is drawn into it.
       return (
         <Box flexDirection="column" position="relative">
-          <Svg source={renderScene(state, current, `${cols}×${rows}`)} alt={describeScene(state)} width={width} height={height} isInteractive />
+          <Svg source={renderScene(state, current, `${cols}×${rows}`, shade)} alt={describeScene(state)} width={width} height={height} isInteractive />
           <Box position="absolute" top={0} left={1} flexDirection="row" gap={1}>
             {picker}
             <Select
@@ -316,6 +327,17 @@ export const register: Register = on => {
                 void $.store.set('zoom', z).catch(() => undefined)
               }}
             />
+            <Button
+              key="mode"
+              onPress={() => {
+                const next: Mode = shade === 'dunkel' ? 'hell' : 'dunkel'
+
+                void update($, mode, () => next)
+                void $.store.set('mode', next).catch(() => undefined)
+              }}
+            >
+              {shade === 'dunkel' ? '☀ Hell' : '☾ Dunkel'}
+            </Button>
           </Box>
         </Box>
       )
