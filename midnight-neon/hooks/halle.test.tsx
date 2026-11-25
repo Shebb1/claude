@@ -31,8 +31,8 @@ test('a message puts the package at the planners, the picker switches designs', 
   await term.unmount()
 
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Button', key: 'design-claude' }))?.props.variant).toBe('primary')
-  await ui.press({ key: 'design-neon' })
-  expect((await ui.find({ type: 'Button', key: 'design-neon' }))?.props.variant).toBe('primary')
+  expect((await ui.find({ type: 'Select', key: 'design' }))?.props.value).toBe('claude')
+  await ui.select({ key: 'design', value: 'neon' })
+  expect((await ui.find({ type: 'Select', key: 'design' }))?.props.value).toBe('neon')
   await ui.unmount()
 })

@@ -256,32 +256,33 @@ export const register: Register = on => {
     const state = await read($, floor)
     const chosen = await read($, design)
     const current = isDesign(chosen) ? chosen : DEFAULT_DESIGN
-    const { Box, Button, Text } = $.ui.resolve(e)
-    const pick = (k: string) => async () => {
-      await update($, design, () => k)
-      // Remembered for the next session; a failed save keeps the choice for this one.
-      await $.store.set('design', k).catch(() => undefined)
-    }
+    const { Box, Select, Text } = $.ui.resolve(e)
     const picker = (
-      <Box flexDirection="row" flexWrap="wrap" gap={1}>
-        {DESIGNS.map((d, i) => (
-          <Button key={`design-${d.k}`} variant={d.k === current ? 'primary' : 'secondary'} onPress={pick(d.k)}>
-            {`${i + 1} ${d.name}`}
-          </Button>
-        ))}
-      </Box>
+      <Select
+        key="design"
+        label="Design"
+        options={DESIGNS.map((d, i) => ({ value: d.k, label: `${i + 1} ${d.name}` }))}
+        value={current}
+        onSelect={k => {
+          if (!isDesign(k)) return
+          void update($, design, () => k)
+          // Remembered for the next session; a failed save keeps the choice for this one.
+          void $.store.set('design', k).catch(() => undefined)
+        }}
+      />
     )
 
     if (e.surface === 'desktop' || e.surface === 'mobile') {
       const { Svg } = $.ui.resolve(e)
 
+      // The hall fills the pane's width at its own proportions; the design
+      // picker sits on the drawing, the log is drawn into it.
       return (
-        <Box flexDirection="column" gap={1}>
-          {picker}
+        <Box flexDirection="column" position="relative">
           <Svg source={renderScene(state, current)} alt={describeScene(state)} isInteractive />
-          {state.log.slice(-3).map((entry, i) => (
-            <Text key={`log-${i}`} dimColor>{entry}</Text>
-          ))}
+          <Box position="absolute" top={0} left={1}>
+            {picker}
+          </Box>
         </Box>
       )
     }
