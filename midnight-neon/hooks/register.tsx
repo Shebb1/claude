@@ -42,7 +42,7 @@ const LOOK: ThemeSetArgs = { colors: theme }
 const PANE = 'halle'
 const TITLE = 'Halle 3'
 // How long the drawing animates a trip along the belt before it stands still.
-const TRIP_MS = 3200
+const TRIP_MS = 6000
 
 const EMPTY: FloorState = {
   phase: 'idle',
@@ -51,13 +51,14 @@ const EMPTY: FloorState = {
   pkg: -1,
   from: -1,
   moving: false,
+  movedAt: 0,
   stamps: [],
   workers: [],
   counts: { done: 0, tools: 0 },
   log: [],
 }
 
-const floor = atom({ plugin: 'midnight-neon', key: 'floor' } as const, EMPTY, { shape: 'floor-2' })
+const floor = atom({ plugin: 'midnight-neon', key: 'floor' } as const, EMPTY, { shape: 'floor-3' })
 const design = atom({ plugin: 'midnight-neon', key: 'design' } as const, DEFAULT_DESIGN, { shape: 'design-1' })
 // The drawing's size in percent of what the pane's cells suggest. The engine
 // gives a pane's size in text cells, not pixels: CELL_W and CELL_H are the
@@ -100,9 +101,10 @@ const stationName = (i: number): string => STATIONS[i]?.name ?? 'Agent'
 const logged = (s: FloorState, line: string): string[] => [...s.log, line].slice(-5)
 const worker = (s: FloorState, id: string, fn: (w: FloorWorker) => FloorWorker): FloorWorker[] =>
   s.workers.map(w => (w.id === id ? fn(w) : w))
-// Moves the package forward to a station; it never runs backwards.
+// Sends the package to a station. The belt only runs one way: the drawing takes
+// it the long way round when the station lies behind.
 const moveTo = (s: FloorState, to: number): FloorState =>
-  to <= s.pkg ? s : { ...s, from: s.pkg, pkg: to, moving: true, stamps: s.pkg >= 0 && !s.stamps.includes(s.pkg) ? [...s.stamps, s.pkg] : s.stamps }
+  to === s.pkg ? s : { ...s, from: s.pkg, pkg: to, moving: true, movedAt: Date.now(), stamps: s.pkg >= 0 && !s.stamps.includes(s.pkg) ? [...s.stamps, s.pkg] : s.stamps }
 
 // The scene is decoration: a failed write must never get in the way of a turn or a tool.
 const safely = async ($: EngineInterface, fn: (s: FloorState) => FloorState): Promise<void> => {
@@ -179,6 +181,7 @@ export const register: Register = on => {
         pkg: 0,
         from: -1,
         moving: true,
+        movedAt: Date.now(),
         counts: s.counts,
         workers: s.workers.filter(w => w.status === 'run'),
         log: logged(s, 'Auftrag liegt auf dem Band'),
@@ -262,14 +265,19 @@ export const register: Register = on => {
         return s
       }
 
-      return {
+      const after = {
         ...s,
         workers: worker(s, id, w => ({ ...w, status: isDone ? ('done' as const) : ('failed' as const), tool: '' })),
         stamps: isDone && !s.stamps.includes(who.station) ? [...s.stamps, who.station] : s.stamps,
         counts: { ...s.counts, done: s.counts.done + (isDone ? 1 : 0) },
         log: logged(s, `${stationName(who.station)} ${isDone ? 'liefert ab' : 'wurde gestoppt'}`),
       }
+      // The package goes on to whoever is still working on the job.
+      const still = after.workers.filter(w => w.status === 'run').pop()
+
+      return still !== undefined && after.pkg === who.station ? moveTo(after, still.station) : after
     })
+    settle($)
 
     return next(e)
   })
@@ -311,7 +319,7 @@ export const register: Register = on => {
       // picker sits on the drawing, the log is drawn into it.
       return (
         <Box flexDirection="column" position="relative">
-          <Svg source={renderScene(state, current, `${cols}×${rows}`, shade)} alt={describeScene(state)} width={width} height={height} isInteractive />
+          <Svg source={renderScene(state, current, `${cols}×${rows}`, shade, Date.now())} alt={describeScene(state)} width={width} height={height} isInteractive />
           <Box position="absolute" top={0} left={1} flexDirection="row" gap={1}>
             {picker}
             <Select

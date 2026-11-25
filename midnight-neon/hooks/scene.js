@@ -286,15 +286,19 @@ function pkgSvg(st, pk, stamps, col) {
 }
 // The trip from one station to the next, as an animateMotion path relative to
 // the end point (the package is drawn where it ends).
-function trip(from, to) {
-  const s0 = sAt(from), s1 = sAt(to)
-  if (s1 <= s0) return { svg: '', dur: 0 }
-  const e = at(s1), end = P(e.x, e.d), list = []
-  if (from < 0) { const a = P(XS - 0.5, Y0); list.push([a[0] - end[0], a[1] - end[1]]) }
-  for (let s = s0; s < s1; s += 0.4) { const q = at(s), a = P(q.x, q.d); list.push([a[0] - end[0], a[1] - end[1]]) }
-  list.push([0, 0])
-  const dur = Math.max(0.8, Math.min(3, (s1 - s0) / 3.2))
-  return { dur, svg: `<animateMotion dur="${dur.toFixed(2)}s" fill="freeze" calcMode="paced" path="M${list.map(q => r1(q[0]) + ' ' + r1(q[1])).join(' L')}"/>` }
+function trip(from, to, elapsed = 0) {
+  if (from === to) return { svg: '', dur: 0 }
+  const s0 = sAt(from), s1 = sAt(to), e = at(s1), end = P(e.x, e.d)
+  const rel = s => { const q = at(s), a = P(q.x, q.d); return r1(a[0] - end[0]) + ' ' + r1(a[1] - end[1]) }
+  const run = (a, b) => { const l = []; for (let s = a; s < b; s += 0.4) l.push(rel(s)); l.push(rel(b)); return 'M' + l.join(' L') }
+  // Forward along the belt. A station behind is reached the long way round:
+  // on to the chat, then out of it again at the start.
+  const ahead = s1 > s0
+  const path = ahead ? run(s0, s1) : run(s0, PATH.L) + ' ' + run(0, s1)
+  const len = ahead ? s1 - s0 : PATH.L - s0 + s1
+  const dur = Math.max(0.8, Math.min(4.5, len / 3.2))
+  // A negative begin resumes a trip already under way: a redraw never restarts it.
+  return { dur, svg: `<animateMotion begin="${(-elapsed).toFixed(2)}s" dur="${dur.toFixed(2)}s" fill="freeze" calcMode="paced" path="${path}"/>` }
 }
 
 // ---------- chat terminal ----------
@@ -686,7 +690,7 @@ function activity(state) {
   return { active, counts }
 }
 
-export function renderScene(state, design, note = '', mode = '') {
+export function renderScene(state, design, note = '', mode = '', now = 0) {
   const st = resolve(DESIGNS.find(d => d.k === design) || DESIGNS[0], mode)
   SNAP = st.snap || 0
   try {
@@ -702,9 +706,10 @@ export function renderScene(state, design, note = '', mode = '') {
     if (state.pkg >= 0 && (state.pkg <= 5 || state.moving)) {
       const end = state.pkg > 5 ? { x: XS, d: Y1 } : { x: ST[state.pkg].bx, d: ST[state.pkg].bd }
       let g = pkgSvg(st, end, state.stamps, col)
-      const t = state.moving ? trip(state.from, state.pkg) : { svg: '', dur: 0 }
+      const elapsed = state.moving && state.movedAt && now ? Math.max(0, (now - state.movedAt) / 1000) : 0
+      const t = state.moving ? trip(state.from, state.pkg, elapsed) : { svg: '', dur: 0 }
       g += t.svg
-      if (state.pkg > 5) g += `<animate attributeName="opacity" from="1" to="0" begin="${Math.max(0, t.dur - 0.3).toFixed(2)}s" dur="0.5s" fill="freeze"/>`
+      if (state.pkg > 5) g += `<animate attributeName="opacity" from="1" to="0" begin="${(t.dur - 0.3 - elapsed).toFixed(2)}s" dur="0.5s" fill="freeze"/>`
       const svg = `<g${st.pkg.filter ? ` filter="url(#${k}-${st.pkg.filter})"` : ''}>${g}</g>`
       if (state.moving) riding = svg
       else items.push({ d: end.d - 0.3, x: end.x, svg })

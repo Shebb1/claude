@@ -19,6 +19,8 @@ export type FloorState = {
   // Where it came from; `moving` makes the drawing animate the trip once.
   from: number
   moving: boolean
+  // When that trip began, in ms since the epoch: a redraw resumes it there.
+  movedAt: number
   stamps: number[]
   workers: FloorWorker[]
   counts: { done: number; tools: number }
