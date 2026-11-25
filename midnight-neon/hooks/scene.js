@@ -404,8 +404,7 @@ function boardSvg(st, state, active) {
 
 // ---------- shared pieces ----------
 function baseDefs(k) {
-  return `<filter id="flip" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="-1 0 0 0 1  0 -1 0 0 1  0 0 -1 0 1  0 0 0 1 0"/><feColorMatrix type="hueRotate" values="180"/></filter>` +
-    `<filter id="${k}-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4"/></filter>` +
+  return `<filter id="${k}-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4"/></filter>` +
     `<filter id="${k}-glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>` +
     `<filter id="${k}-drop" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="3" dy="4" stdDeviation="2.5" flood-color="#5b4630" flood-opacity=".35"/></filter>` +
     `<radialGradient id="${k}-shine" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1d10" stop-opacity=".28"/></radialGradient>`
@@ -422,233 +421,243 @@ const checker = b => { let s = ''; for (let x = FX0, i = 0; x < FX1 - 0.01; x +=
 const scan = (step, op) => { let s = ''; for (let y = 0; y < VH; y += step) s += `<rect y="${y}" width="${VW}" height="1" fill="#000" opacity="${op}"/>`; return s }
 
 // ---------- the eleven designs ----------
+// Every design has a night and a day palette. Night is dark and its lights
+// are on; day is bright, lit by nothing, built from a complementary pair
+// (belt and rail against the figures or the floor) and one separate accent.
+// The figures and the package keep their colours in both.
+//
+// Palette keys: bg1 bg2 background, fT fF fS floor top/front/side, line grid
+// and outlines, bT bS bStripe rail belt, wall, panel panel2 text muted the
+// header, board and chat, accent accentText, comp compText the complement,
+// labelBg labelFg the name plates, shadow, slot.
+const bgDef = (k, p, radial) => radial
+  ? `<radialGradient id="${k}-bg" cx="50%" cy="45%" r="80%"><stop offset="0" stop-color="${p.bg1}"/><stop offset="1" stop-color="${p.bg2}"/></radialGradient>`
+  : `<linearGradient id="${k}-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${p.bg1}"/><stop offset="1" stop-color="${p.bg2}"/></linearGradient>`
+const bgRect = k => `<rect width="${VW}" height="${VH}" fill="url(#${k}-bg)"/>`
+const vigDef = (k, c, op) => `<radialGradient id="${k}-vig" cx="50%" cy="55%" r="72%"><stop offset=".55" stop-color="${c}" stop-opacity="0"/><stop offset="1" stop-color="${c}" stop-opacity="${op}"/></radialGradient>`
+const vig = k => `<rect width="${VW}" height="${VH}" fill="url(#${k}-vig)"/>`
+const poolDef = (k, c, op = 0.5) => `<radialGradient id="${k}-pool" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="${c}" stop-opacity="${op}"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></radialGradient>`
+// Night only: a pool of light on the floor under every station.
+const pools = k => [...ST, ORCH].map(F => { const B = P(F.x, F.d, 0); return `<ellipse cx="${r1(B[0])}" cy="${r1(B[1])}" rx="105" ry="46" fill="url(#${k}-pool)"/>` }).join('')
+const slabOf = (p, o) => slab({ top: p.fT, front: p.fF, side: p.fS }, o)
+const ring = (k, B, c, glow) => `<ellipse cx="${r1(B[0])}" cy="${r1(B[1])}" rx="${r1(0.62 * S)}" ry="${r1(0.24 * S)}" fill="none" stroke="${c}" stroke-width="2.6" stroke-dasharray="7 6"${glow ? ` filter="url(#${k}-glow)"` : ''}><animate attributeName="stroke-dashoffset" from="0" to="-26" dur="1s" repeatCount="indefinite"/></ellipse>`
+
 export const DESIGNS = [
 {
   k: 'claude', name: 'Claude', font: "'Segoe UI', system-ui, sans-serif",
   col: { fable: '#f2c14e', opus: '#c84b5a', sonnet: '#4f7be0', haiku: '#f2cf3f', orch: '#d97757' },
-  defs: k => `<radialGradient id="${k}-bg" cx="50%" cy="45%" r="75%"><stop offset="0" stop-color="#2a1a12"/><stop offset="1" stop-color="#140c08"/></radialGradient>` +
-    `<pattern id="${k}-grid" width="44" height="44" patternUnits="userSpaceOnUse"><path d="M44 0H0V44" fill="none" stroke="#3a2619" stroke-width="1"/></pattern>` +
-    `<pattern id="${k}-rain" width="130" height="90" patternUnits="userSpaceOnUse"><line x1="12" y1="6" x2="12" y2="18" stroke="#8a7060" stroke-opacity=".5" stroke-width="1.4"/><line x1="70" y1="44" x2="70" y2="54" stroke="#8a7060" stroke-opacity=".4" stroke-width="1.2"/><line x1="104" y1="20" x2="104" y2="32" stroke="#8a7060" stroke-opacity=".45" stroke-width="1.4"/><line x1="40" y1="70" x2="40" y2="80" stroke="#8a7060" stroke-opacity=".35" stroke-width="1.2"/><animateTransform attributeName="patternTransform" type="translate" from="0 0" to="0 90" dur="1.1s" repeatCount="indefinite"/></pattern>` +
-    `<radialGradient id="${k}-vig" cx="50%" cy="50%" r="70%"><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#0b0604" stop-opacity=".65"/></radialGradient>`,
-  bg: k => `<rect width="${VW}" height="${VH}" fill="url(#${k}-bg)"/><rect width="${VW}" height="${VH}" fill="url(#${k}-grid)"/>`,
-  floor: () => slab({ top: '#2b1b12', front: '#1c110b', side: '#160d08' }) + grid(1, '#3e2a1d', 1, 0.7),
-  beltShadow: '#0a050399',
-  belt: { top: '#3a281d', side: '#271a12', stripe: '#4a3527', gap: 0.3, rail: '#d97757', railW: 1.3 },
   fig: { kind: 'clawd' },
-  shadow: '#0a0503',
-  console: '#3a281d',
   pkg: { top: '#f3e7d6', front: '#e6d6bf', side: '#cdbb9f', tape: '#d97757', stroke: '#a08a6b', sw: 0.6, stampStroke: '#fff' },
-  chat: { frame: '#2e1f16', screen: '#170e09', head: '#22160f', text: '#f3e7dc', muted: '#a8907f', user: '#d97757', ai: '#2a1c14', aiStroke: '#4a3527', accent: '#d97757', accentText: '#1a0e08', input: '#1f140e', inputStroke: '#4a3527', slot: '#000', stroke: '#3a281d', sw: 1 },
-  activeUnder: (k, F, B) => `<ellipse cx="${r1(B[0])}" cy="${r1(B[1])}" rx="${r1(0.6 * S)}" ry="${r1(0.22 * S)}" fill="#d97757" opacity=".28"><animate attributeName="opacity" values=".35;.1;.35" dur="1.2s" repeatCount="indefinite"/></ellipse>`,
-  label: { fill: '#f3e7dc', bg: '#0c060399', size: 11, rx: 8 },
-  bubble: { bg: '#f3e7dc', fg: '#2a170f' },
-  link: '#d97757',
-  overlay: k => `<rect width="${VW}" height="${VH}" fill="url(#${k}-rain)"/><rect width="${VW}" height="${VH}" fill="url(#${k}-vig)"/>`,
+  opts: { gap: 0.3, railW: 1.4 }, lab: { size: 11, rx: 8 },
+  night: { bg1: '#2a1a12', bg2: '#120a06', fT: '#2b1b12', fF: '#1c110b', fS: '#160d08', line: '#3e2a1d', bT: '#3a281d', bS: '#271a12', bStripe: '#4a3527', rail: '#d97757', wall: '#2e1f16', panel: '#170e09', panel2: '#2a1c14', text: '#f3e7dc', muted: '#a8907f', accent: '#d97757', accentText: '#1a0e08', comp: '#4fa3b3', labelBg: '#0c0603b3', labelFg: '#f3e7dc', shadow: '#0a0503' },
+  day: { bg1: '#f8f2e8', bg2: '#eadfcd', fT: '#f1e6d4', fF: '#d8c7ab', fS: '#c8b596', line: '#dfd0b8', bT: '#5b97a5', bS: '#3d7684', bStripe: '#79adb9', rail: '#2c6270', wall: '#e2d4bd', panel: '#fffaf2', panel2: '#f0e5d4', text: '#2c2018', muted: '#7d6b5a', accent: '#7a4fb5', accentText: '#ffffff', comp: '#2c7a8a', labelBg: '#fffaf2e6', labelFg: '#2c2018', shadow: '#8c7a62' },
+  paint: (p, n) => ({
+    defs: k => bgDef(k, p, true) + `<pattern id="${k}-grid" width="44" height="44" patternUnits="userSpaceOnUse"><path d="M44 0H0V44" fill="none" stroke="${p.line}" stroke-width="1"/></pattern>` +
+      (n ? poolDef(k, '#ffb070', 0.42) + vigDef(k, '#0b0604', 0.65) + `<pattern id="${k}-rain" width="130" height="90" patternUnits="userSpaceOnUse"><line x1="12" y1="6" x2="12" y2="18" stroke="#8a7060" stroke-opacity=".5" stroke-width="1.4"/><line x1="70" y1="44" x2="70" y2="54" stroke="#8a7060" stroke-opacity=".4" stroke-width="1.2"/><line x1="104" y1="20" x2="104" y2="32" stroke="#8a7060" stroke-opacity=".45" stroke-width="1.4"/><line x1="40" y1="70" x2="40" y2="80" stroke="#8a7060" stroke-opacity=".35" stroke-width="1.2"/><animateTransform attributeName="patternTransform" type="translate" from="0 0" to="0 90" dur="1.1s" repeatCount="indefinite"/></pattern>` : ''),
+    bg: k => bgRect(k) + `<rect width="${VW}" height="${VH}" fill="url(#${k}-grid)" opacity="${n ? 1 : 0.6}"/>`,
+    floor: k => slabOf(p) + grid(1, p.line, 1, 0.7) + (n ? pools(k) : ''),
+    overlay: k => (n ? `<rect width="${VW}" height="${VH}" fill="url(#${k}-rain)"/>` + vig(k) : ''),
+  }),
 },
 {
   k: 'werk', name: 'Werkhalle', font: "'Segoe UI', system-ui, sans-serif",
-  defs: k => `<linearGradient id="${k}-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2926"/><stop offset="1" stop-color="#151413"/></linearGradient>` +
-    `<linearGradient id="${k}-fl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6a6660"/><stop offset=".55" stop-color="#57544f"/><stop offset="1" stop-color="#4a4743"/></linearGradient>` +
-    `<linearGradient id="${k}-cone" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe2b0" stop-opacity=".32"/><stop offset="1" stop-color="#ffe2b0" stop-opacity="0"/></linearGradient>` +
-    `<radialGradient id="${k}-vig" cx="50%" cy="55%" r="70%"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#0b0a09" stop-opacity=".7"/></radialGradient>`,
-  bg: k => `<rect width="${VW}" height="${VH}" fill="url(#${k}-bg)"/>`,
-  floor: k => {
-    const inset = [P(FX0 + 0.3, FD0 + 0.3), P(FX1 - 0.3, FD0 + 0.3), P(FX1 - 0.3, FD1 - 0.3), P(FX0 + 0.3, FD1 - 0.3)]
-    return slab({ top: `url(#${k}-fl)`, front: '#3b3936', side: '#2f2d2a' }) + grid(2, '#2e2c29', 1, 0.55) +
-      `<polygon points="${pts(inset)}" fill="none" stroke="#e8b31e" stroke-width="5"/><polygon points="${pts(inset)}" fill="none" stroke="#1d1b19" stroke-width="5" stroke-dasharray="9 9"/>`
-  },
-  beltShadow: '#0e0d0c99',
-  belt: { top: '#232427', side: '#8e959e', stripe: '#38393d', gap: 0.2, rail: '#c8cdd3', railW: 1.2, legs: '#5d636b' },
   fig: { kind: 'robot' },
-  shadow: '#0f0e0d',
   pkg: { top: '#d3a468', front: '#b9884f', side: '#9b6e3d', tape: '#e8d3a2', stroke: '#7a5530', sw: 0.6, stampStroke: '#5b3e20' },
-  chat: { frame: '#3b3e44', screen: '#101216', head: '#1a1d23', text: '#e8e6e1', muted: '#8f949c', user: '#d9683f', ai: '#22262d', accent: '#ffb547', input: '#171a1f', slot: '#050506', stroke: '#2a2d33', sw: 1 },
-  activeUnder: (k, F, B) => `<ellipse cx="${r1(B[0])}" cy="${r1(B[1])}" rx="${r1(0.6 * S)}" ry="${r1(0.24 * S)}" fill="none" stroke="#ffb547" stroke-width="2" stroke-dasharray="6 5"><animate attributeName="stroke-dashoffset" from="0" to="-22" dur="1s" repeatCount="indefinite"/></ellipse>`,
-  label: { fill: '#f2efe8', bg: '#1b1c1fd9', stroke: '#3a3b40', dot: true },
-  bubble: { bg: '#ffb547', fg: '#231507' },
-  link: '#ffb547',
-  overlay: k => {
-    let s = ''
-    for (const x of [190, 450, 720]) s += `<polygon points="${x - 16},0 ${x + 16},0 ${x + 170},${VH} ${x - 170},${VH}" fill="url(#${k}-cone)"/><rect x="${x - 26}" y="0" width="52" height="8" rx="2" fill="#2d2c2a"/><rect x="${x - 20}" y="8" width="40" height="3" fill="#ffe9c2"/>`
-    return s + `<rect width="${VW}" height="${VH}" fill="url(#${k}-vig)"/>`
-  },
+  opts: { gap: 0.2, railW: 1.2, legs: true, labelStroke: true }, lab: { dot: true },
+  night: { bg1: '#2b2926', bg2: '#131211', fT: '#5d5a55', fF: '#3b3936', fS: '#2f2d2a', line: '#2e2c29', bT: '#232427', bS: '#8e959e', bStripe: '#38393d', rail: '#c8cdd3', wall: '#3b3e44', panel: '#101216', panel2: '#22262d', text: '#e8e6e1', muted: '#8f949c', accent: '#ffb547', accentText: '#231507', comp: '#5aa0e6', labelBg: '#1b1c1fd9', labelFg: '#f2efe8', shadow: '#0f0e0d' },
+  day: { bg1: '#eef1f4', bg2: '#d6dce2', fT: '#dadde1', fF: '#b8bec5', fS: '#a5acb4', line: '#c3c9cf', bT: '#33475e', bS: '#9fb0c2', bStripe: '#48607a', rail: '#e9eef3', wall: '#c8d0d8', panel: '#ffffff', panel2: '#edf0f4', text: '#1e2630', muted: '#677380', accent: '#c2362f', accentText: '#ffffff', comp: '#2467b3', labelBg: '#ffffffe6', labelFg: '#1e2630', shadow: '#7c8690' },
+  paint: (p, n) => ({
+    defs: k => bgDef(k, p) + (n ? `<linearGradient id="${k}-cone" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe2b0" stop-opacity=".34"/><stop offset="1" stop-color="#ffe2b0" stop-opacity="0"/></linearGradient>` + vigDef(k, '#0b0a09', 0.7) : ''),
+    bg: k => bgRect(k),
+    floor: () => {
+      const inset = [P(FX0 + 0.3, FD0 + 0.3), P(FX1 - 0.3, FD0 + 0.3), P(FX1 - 0.3, FD1 - 0.3), P(FX0 + 0.3, FD1 - 0.3)]
+      // Safety yellow against the blue belt: the day pair.
+      return slabOf(p) + grid(2, p.line, 1, 0.6) + `<polygon points="${pts(inset)}" fill="none" stroke="#e8b31e" stroke-width="5"/><polygon points="${pts(inset)}" fill="none" stroke="#1d1b19" stroke-width="5" stroke-dasharray="9 9"/>`
+    },
+    overlay: k => {
+      let s = ''
+      for (const x of [190, 450, 720]) s += (n ? `<polygon points="${x - 16},100 ${x + 16},100 ${x + 190},${VH} ${x - 190},${VH}" fill="url(#${k}-cone)"/>` : '') + `<rect x="${x - 26}" y="104" width="52" height="8" rx="2" fill="${n ? '#2d2c2a' : '#8d97a2'}"/><rect x="${x - 20}" y="112" width="40" height="3" fill="${n ? '#ffe9c2' : '#c9d1d9'}"/>`
+      return s + (n ? vig(k) : '')
+    },
+  }),
 },
 {
   k: 'neon', name: 'Mitternachts-Neon', font: "'Cascadia Code', 'JetBrains Mono', ui-monospace, monospace",
   col: { fable: '#ffd84a', opus: '#ff9d3c', sonnet: '#38c8ff', haiku: '#3dffa0', orch: '#c58bff' },
-  defs: k => `<linearGradient id="${k}-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b0c22"/><stop offset=".6" stop-color="#14163a"/><stop offset="1" stop-color="#1d1f52"/></linearGradient>` +
-    `<linearGradient id="${k}-hz" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff4fd8" stop-opacity="0"/><stop offset="1" stop-color="#ff4fd8" stop-opacity=".18"/></linearGradient>`,
-  bg: k => { let s = `<rect width="${VW}" height="${VH}" fill="url(#${k}-bg)"/>`; for (let i = 0; i < 40; i++) s += `<circle cx="${(i * 137) % VW}" cy="${(i * 59) % 420}" r="${i % 3 ? 0.8 : 1.4}" fill="#cfd3ff" opacity="${(0.25 + (i % 4) * 0.15).toFixed(2)}"/>`; return s + `<rect y="120" width="${VW}" height="140" fill="url(#${k}-hz)"/>` },
-  floor: k => slab({ top: '#11132e', front: '#0b0c22', side: '#08091a' }) + grid(1, '#ff4fd8', 1, 0.28) + `<polygon points="${pts(FLOOR)}" fill="none" stroke="#38f6ff" stroke-width="1.5" filter="url(#${k}-glow)"/>`,
-  belt: { top: '#0a0b1d', side: '#151842', stripe: '#38f6ff33', gap: 0.3, rail: '#38f6ff', railW: 1.6, railFilter: 'glow' },
   fig: { kind: 'block', body: '#15173a', skin: '#1f2252', stroke: 'model', sw: 1.4, filter: 'glow' },
-  console: '#15173a', consoleO: { stroke: '#38f6ff', sw: 1 },
   pkg: { top: '#ffb15c', front: '#ff8f2a', side: '#d96d10', stroke: '#ffe0bf', sw: 0.8, filter: 'glow' },
-  chat: { frame: '#1b1d48', screen: '#080918', head: '#12143a', text: '#eceeff', muted: '#8d92c9', user: '#ff4fd8', ai: '#161944', aiStroke: '#38f6ff55', accent: '#3dffa0', input: '#0e1030', inputStroke: '#38f6ff66', slot: '#000', stroke: '#38f6ff55', sw: 1 },
-  activeUnder: (k, F, B, col) => `<ellipse cx="${r1(B[0])}" cy="${r1(B[1])}" rx="${r1(0.55 * S)}" ry="${r1(0.22 * S)}" fill="none" stroke="${col}" stroke-width="2.5" filter="url(#${k}-glow)"><animate attributeName="opacity" values="1;.4;1" dur="0.9s" repeatCount="indefinite"/></ellipse><rect x="${r1(B[0] - 10)}" y="${r1(B[1] - 120)}" width="20" height="120" fill="${col}" opacity=".12"/>`,
-  label: { fill: '#eceeff', bg: '#0b0c22cc', stroke: '#38f6ff55', size: 10.5, wf: 0.66 },
-  bubble: { bg: '#38f6ff', fg: '#07081a', rx: 3 },
-  link: '#c58bff',
-  overlay: () => scan(4, 0.12),
+  opts: { gap: 0.3, railW: 1.6, glow: true, consoleSw: 1, labelStroke: true, noShadow: true, noBeltShadow: true }, lab: { size: 10.5, wf: 0.66 }, bub: { rx: 3 },
+  night: { bg1: '#0b0c22', bg2: '#1d1f52', fT: '#11132e', fF: '#0b0c22', fS: '#08091a', line: '#38f6ff', bT: '#0a0b1d', bS: '#151842', bStripe: '#38f6ff33', rail: '#38f6ff', wall: '#1b1d48', panel: '#080918', panel2: '#161944', text: '#eceeff', muted: '#8d92c9', accent: '#3dffa0', accentText: '#07081a', comp: '#ff4fd8', labelBg: '#0b0c22cc', labelFg: '#eceeff', shadow: '#000000' },
+  day: { bg1: '#f6f3ff', bg2: '#e3f5fa', fT: '#eeeafc', fF: '#cfc7ee', fS: '#bdb4e2', line: '#8f7fd6', bT: '#1f9bb0', bS: '#157889', bStripe: '#5cc0d0', rail: '#0f5f6e', wall: '#dcd5f5', panel: '#ffffff', panel2: '#f0ecfd', text: '#1a1640', muted: '#6a6593', accent: '#e0358f', accentText: '#ffffff', comp: '#e0752a', labelBg: '#ffffffe6', labelFg: '#1a1640', shadow: '#8f86c2' },
+  paint: (p, n) => ({
+    defs: k => bgDef(k, p) + (n ? `<linearGradient id="${k}-hz" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff4fd8" stop-opacity="0"/><stop offset="1" stop-color="#ff4fd8" stop-opacity=".2"/></linearGradient>` : ''),
+    bg: k => { let s = bgRect(k); if (n) { for (let i = 0; i < 40; i++) s += `<circle cx="${(i * 137) % VW}" cy="${110 + (i * 59) % 330}" r="${i % 3 ? 0.8 : 1.4}" fill="#cfd3ff" opacity="${(0.25 + (i % 4) * 0.15).toFixed(2)}"/>`; s += `<rect y="300" width="${VW}" height="180" fill="url(#${k}-hz)"/>` } return s },
+    floor: k => slabOf(p) + grid(1, n ? '#ff4fd8' : p.line, 1, n ? 0.28 : 0.35) + `<polygon points="${pts(FLOOR)}" fill="none" stroke="${p.rail}" stroke-width="1.5"${n ? ` filter="url(#${k}-glow)"` : ''}/>`,
+    overlay: () => (n ? scan(4, 0.12) : ''),
+  }),
 },
 {
   k: 'blau', name: 'Blaupause', font: 'Consolas, ui-monospace, monospace',
   col: { fable: '#ffe9a8', opus: '#ffc2a8', sonnet: '#bcd6ff', haiku: '#b8f2d2', orch: '#dccbff' },
-  defs: k => `<pattern id="${k}-g" width="12" height="12" patternUnits="userSpaceOnUse"><path d="M12 0H0V12" fill="none" stroke="#ffffff" stroke-opacity=".08"/></pattern><pattern id="${k}-G" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M60 0H0V60" fill="none" stroke="#ffffff" stroke-opacity=".16"/></pattern>`,
-  bg: k => `<rect width="${VW}" height="${VH}" fill="#1b4a8a"/><rect width="${VW}" height="${VH}" fill="url(#${k}-g)"/><rect width="${VW}" height="${VH}" fill="url(#${k}-G)"/>`,
-  floor: () => slab('#1d4f93', { stroke: '#e8f1ff', sw: 1.2 }),
-  belt: { top: '#1d4f93', side: '#1b4a8a', stroke: '#e8f1ff', sw: 0.9, center: '#e8f1ffaa' },
   fig: { kind: 'block', body: '#1d4f93', skin: '#1d4f93', stroke: '#e8f1ff', sw: 1, hatStroke: '#e8f1ff' },
-  console: '#1d4f93', consoleO: { stroke: '#e8f1ff', sw: 1 },
   pkg: { top: '#1d4f93', front: '#1b4a8a', side: '#184480', stroke: '#ffffff', sw: 1.2, letter: '#ffffff', stampStroke: '#fff' },
-  chat: { frame: '#1d4f93', screen: '#1b4a8a', head: '#1d4f93', text: '#e8f1ff', muted: '#bcd0ee', user: '#2a5da3', ai: '#1b4a8a', aiStroke: '#e8f1ff', accent: '#e8f1ff', accentText: '#1b4a8a', input: '#1b4a8a', slot: '#123a6e', stroke: '#e8f1ff', sw: 1 },
-  activeUnder: (k, F, B) => `<circle cx="${r1(B[0])}" cy="${r1(B[1] - 22)}" r="36" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-dasharray="4 4"><animate attributeName="r" values="34;38;34" dur="1.4s" repeatCount="indefinite"/></circle>`,
-  label: { fill: '#e8f1ff', size: 10.5, upper: true, ls: 1.2, weight: 500 },
-  bubble: { bg: '#e8f1ff', fg: '#1b4a8a', rx: 0 },
-  link: '#e8f1ff',
-  overlay: (k, state) => {
-    const a = P(XS, -1.25), b = P(XR + HW, -1.25)
-    let s = line(a, b, '#e8f1ff', 1) + line(P(XS, -1.1), P(XS, -1.4), '#e8f1ff', 1) + line(P(XR + HW, -1.1), P(XR + HW, -1.4), '#e8f1ff', 1)
-    s += `<text x="${r1((a[0] + b[0]) / 2)}" y="${r1(a[1] - 5)}" text-anchor="middle" font-size="10" fill="#e8f1ff" font-family="Consolas, monospace">BANDLÄNGE ${PATH.L.toFixed(1).replace('.', ',')} m</text>`
-    s += `<g font-family="Consolas, monospace" fill="#e8f1ff" font-size="10"><rect x="652" y="${VH - 86}" width="236" height="64" fill="#1b4a8a" stroke="#e8f1ff"/><line x1="652" y1="${VH - 62}" x2="888" y2="${VH - 62}" stroke="#e8f1ff"/><line x1="772" y1="${VH - 62}" x2="772" y2="${VH - 22}" stroke="#e8f1ff"/><text x="662" y="${VH - 70}" font-size="12" font-weight="700">HALLE 3  FÖRDERSTRECKE</text><text x="662" y="${VH - 46}">MASSSTAB 1:50</text><text x="662" y="${VH - 30}">BLATT 1/1</text><text x="782" y="${VH - 46}">FERTIG ${String(state.counts.done).padStart(3, '0')}</text><text x="782" y="${VH - 30}">GEPRÜFT: FABLE</text></g>`
-    return s
-  },
+  opts: { beltSw: 0.9, center: true, consoleSw: 1, noShadow: true, noBeltShadow: true }, lab: { size: 10.5, upper: true, ls: 1.2, weight: 500 }, bub: { rx: 0 },
+  night: { bg1: '#1b4a8a', bg2: '#163f78', fT: '#1d4f93', fF: '#1a468a', fS: '#173f7d', line: '#e8f1ff', bT: '#1d4f93', bS: '#1b4a8a', wall: '#1d4f93', panel: '#1b4a8a', panel2: '#215aa3', text: '#e8f1ff', muted: '#bcd0ee', accent: '#ffd76a', accentText: '#1b3a6a', comp: '#e8f1ff', compText: '#1b4a8a', labelFg: '#e8f1ff', shadow: '#0f2c57', slot: '#123a6e' },
+  day: { bg1: '#f7f9fc', bg2: '#eaf0f7', fT: '#ffffff', fF: '#dfe8f3', fS: '#cfdbea', line: '#1b4a8a', bT: '#fff3df', bS: '#ffe4bd', wall: '#f1f5fa', panel: '#ffffff', panel2: '#eef3f9', text: '#143a70', muted: '#5b769b', accent: '#d2452f', accentText: '#ffffff', comp: '#d98a1f', labelFg: '#143a70', shadow: '#9fb4cf', slot: '#c9d6e6' },
+  paint: (p, n) => ({
+    defs: k => bgDef(k, p) + `<pattern id="${k}-g" width="12" height="12" patternUnits="userSpaceOnUse"><path d="M12 0H0V12" fill="none" stroke="${p.line}" stroke-opacity="${n ? 0.08 : 0.1}"/></pattern><pattern id="${k}-G" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M60 0H0V60" fill="none" stroke="${p.line}" stroke-opacity="${n ? 0.16 : 0.2}"/></pattern>`,
+    bg: k => bgRect(k) + `<rect width="${VW}" height="${VH}" fill="url(#${k}-g)"/><rect width="${VW}" height="${VH}" fill="url(#${k}-G)"/>`,
+    floor: () => slabOf(p, { stroke: p.line, sw: 1.2 }),
+    overlay: (k, state) => {
+      const a = P(XS, -1.25), b = P(XR + HW, -1.25), c = p.line
+      let s = line(a, b, c, 1) + line(P(XS, -1.1), P(XS, -1.4), c, 1) + line(P(XR + HW, -1.1), P(XR + HW, -1.4), c, 1)
+      s += `<text x="${r1((a[0] + b[0]) / 2)}" y="${r1(a[1] - 5)}" text-anchor="middle" font-size="11" fill="${c}" font-family="Consolas, monospace">BANDLÄNGE ${PATH.L.toFixed(1).replace('.', ',')} m</text>`
+      s += `<g font-family="Consolas, monospace" fill="${c}" font-size="10"><rect x="652" y="${VH - 86}" width="236" height="64" fill="${p.panel}" stroke="${c}"/><line x1="652" y1="${VH - 62}" x2="888" y2="${VH - 62}" stroke="${c}"/><line x1="772" y1="${VH - 62}" x2="772" y2="${VH - 22}" stroke="${c}"/><text x="662" y="${VH - 70}" font-size="12" font-weight="700">HALLE 3  FÖRDERSTRECKE</text><text x="662" y="${VH - 46}">MASSSTAB 1:50</text><text x="662" y="${VH - 30}">BLATT 1/1</text><text x="782" y="${VH - 46}">FERTIG ${String(state.counts.done).padStart(3, '0')}</text><text x="782" y="${VH - 30}">GEPRÜFT: FABLE</text></g>`
+      return s
+    },
+  }),
 },
 {
-  k: 'knete', light: true, name: 'Knetfiguren', font: "'Segoe UI Rounded', Nunito, ui-rounded, system-ui, sans-serif",
+  k: 'knete', name: 'Knetfiguren', font: "'Segoe UI Rounded', Nunito, ui-rounded, system-ui, sans-serif",
   col: { fable: '#ffc857', opus: '#ff8a65', sonnet: '#7aa7ff', haiku: '#6fd3a1', orch: '#b79cff' },
-  defs: k => `<radialGradient id="${k}-bg" cx="50%" cy="35%" r="80%"><stop offset="0" stop-color="#fff1e6"/><stop offset="1" stop-color="#f4c9b8"/></radialGradient>`,
-  bg: k => `<rect width="${VW}" height="${VH}" fill="url(#${k}-bg)"/>`,
-  floor: k => `<ellipse cx="450" cy="880" rx="430" ry="100" fill="#c98f7a" opacity=".35" filter="url(#${k}-blur)"/>` + slab({ top: '#fff6ee', front: '#f2d2c2', side: '#e6bba8' }, { stroke: '#fff6ee', sw: 14 }),
-  beltShadow: '#d8a28f88',
-  belt: { top: '#9cc3e4', side: '#77a2c9', stroke: '#9cc3e4', sw: 6, stripe: '#b4d4ef', gap: 0.45, stripeW: 3 },
   fig: { kind: 'capsule', skin: '#ffe3cc' },
-  shadow: '#c9917c',
-  console: '#f7e1d3', consoleO: { stroke: '#f7e1d3', sw: 8 },
   pkg: { top: '#ffb3d1', front: '#ff9ec4', side: '#f283b0', stroke: '#ff9ec4', sw: 6, stampStroke: '#fff' },
-  chat: { frame: '#ffffff', screen: '#fdf6f0', head: '#f7e9df', text: '#5a3e36', muted: '#a6877d', user: '#ff8a65', ai: '#f2e4da', accent: '#6fd3a1', accentText: '#1f3d2e', input: '#ffffff', inputStroke: '#efd8cb', slot: '#e9cfc2', stroke: '#ffffff', sw: 6 },
-  activeUnder: (k, F, B, col) => `<g><path d="M0,-7 L2,-2 L7,0 L2,2 L0,7 L-2,2 L-7,0 L-2,-2 Z" fill="${col}" transform="translate(${r1(B[0] + 30)} ${r1(B[1] - 64)})"/><path d="M0,-5 L1.5,-1.5 L5,0 L1.5,1.5 L0,5 L-1.5,1.5 L-5,0 L-1.5,-1.5 Z" fill="${col}" transform="translate(${r1(B[0] - 32)} ${r1(B[1] - 50)})"/><animateTransform attributeName="transform" type="translate" values="0 0;0 -6;0 0" dur="0.9s" repeatCount="indefinite"/></g>`,
-  label: { fill: '#5a3e36', bg: '#ffffff', size: 11, weight: 800, rx: 11 },
-  bubble: { bg: '#5a3e36', fg: '#fff6ee' },
-  link: '#b79cff',
+  opts: { gap: 0.45, stripeW: 3, beltSw: 6, chatSw: 6, consoleSw: 8, puffy: true }, lab: { size: 11, weight: 800, rx: 11 },
+  night: { bg1: '#3a3157', bg2: '#17132a', fT: '#463d68', fF: '#322a50', fS: '#282142', line: '#463d68', bT: '#5b7fb0', bS: '#42628f', bStripe: '#7397c6', wall: '#3a3157', panel: '#211b38', panel2: '#322a50', text: '#f4eeff', muted: '#a99fca', accent: '#ffd27a', accentText: '#3a2a08', comp: '#ff9a7a', compText: '#3a1408', labelBg: '#211b38e6', labelFg: '#f4eeff', shadow: '#0f0b1f' },
+  day: { bg1: '#fff3ea', bg2: '#f6d2c2', fT: '#fff6ee', fF: '#f2d2c2', fS: '#e6bba8', line: '#fff6ee', bT: '#8fbde6', bS: '#6c9fd0', bStripe: '#add0f0', wall: '#fbe4d8', panel: '#ffffff', panel2: '#f6e7dd', text: '#5a3e36', muted: '#a6877d', accent: '#2fa87a', accentText: '#ffffff', comp: '#3d7fc4', labelBg: '#ffffff', labelFg: '#5a3e36', shadow: '#c9917c' },
+  paint: (p, n) => ({
+    defs: k => bgDef(k, p, true) + (n ? poolDef(k, '#ffd9a0', 0.4) : ''),
+    bg: k => bgRect(k),
+    floor: k => `<ellipse cx="450" cy="900" rx="430" ry="90" fill="${p.shadow}" opacity=".35" filter="url(#${k}-blur)"/>` + slabOf(p, { stroke: p.fT, sw: 14 }) + (n ? pools(k) : ''),
+  }),
 },
 {
-  k: 'voxel', light: true, name: 'Blockwelt', font: "'Cascadia Mono', ui-monospace, monospace",
+  k: 'voxel', name: 'Blockwelt', font: "'Cascadia Mono', ui-monospace, monospace",
   col: { fable: '#f2b632', opus: '#d4542c', sonnet: '#3c78d8', haiku: '#46b04a', orch: '#9b59d0' },
-  defs: k => `<linearGradient id="${k}-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fbcf7"/><stop offset="1" stop-color="#cdeeff"/></linearGradient>`,
-  bg: k => { let s = `<rect width="${VW}" height="${VH}" fill="url(#${k}-bg)"/><rect x="20" y="130" width="56" height="56" fill="#fff3a6"/>`; for (const [x, y, w] of [[110, 150, 110], [30, 250, 90], [40, 420, 70]]) s += `<g><rect x="${x}" y="${y}" width="${w}" height="22" fill="#ffffff"/><rect x="${x + 20}" y="${y - 14}" width="${w * 0.5}" height="14" fill="#ffffff"/><animateTransform attributeName="transform" type="translate" values="0 0;40 0;0 0" dur="30s" repeatCount="indefinite"/></g>`; return s },
-  floor: () => slab({ top: '#5fb34a', front: '#8a5a35', side: '#6e4528' }) + checker('#56a743'),
-  belt: { top: '#8f8f8f', side: '#6b6b6b', stroke: '#454545', sw: 0.7, stripe: '#707070', gap: 0.5, stripeW: 1.5 },
   fig: { kind: 'voxel', skin: '#e0ac7e', stroke: '#00000055', sw: 0.6, legs: '#33497d' },
-  shadow: '#2f6b28',
-  console: '#8f8f8f',
   pkg: { top: '#c08a4a', front: '#a8743a', side: '#8c5e2c', stroke: '#5e3d1a', sw: 1.2, cross: '#6b4520' },
-  chat: { frame: '#8f8f8f', screen: '#1e1e1e', head: '#2c2c2c', text: '#ffffff', muted: '#a0a0a0', user: '#3c78d8', ai: '#333333', accent: '#46b04a', accentText: '#fff', input: '#2a2a2a', slot: '#000', stroke: '#454545', sw: 1 },
-  activeUnder: (k, F, B, col) => { let s = ''; for (let i = 0; i < 5; i++) s += `<rect x="${r1(B[0] - 20 + i * 10)}" y="${r1(B[1] - 30)}" width="5" height="5" fill="${col}"><animate attributeName="y" from="${r1(B[1] - 30)}" to="${r1(B[1] - 110)}" dur="1.4s" begin="${(i * 0.25).toFixed(2)}s" repeatCount="indefinite"/><animate attributeName="opacity" from="1" to="0" dur="1.4s" begin="${(i * 0.25).toFixed(2)}s" repeatCount="indefinite"/></rect>`; return s },
-  label: { fill: '#ffffff', bg: '#00000080', size: 11, rx: 0, weight: 700, wf: 0.64 },
-  bubble: { bg: '#ffffff', fg: '#222222', rx: 0, stroke: '#222' },
-  link: '#ffffff',
+  opts: { gap: 0.5, stripeW: 1.5, beltSw: 0.7 }, lab: { size: 11, rx: 0, weight: 700, wf: 0.64 }, bub: { rx: 0 },
+  night: { bg1: '#070b24', bg2: '#1b2756', fT: '#2f5f2c', fF: '#4a3320', fS: '#3a2718', line: '#1d1d1d', bT: '#5a5a5a', bS: '#434343', bStripe: '#4a4a4a', wall: '#4a4a52', panel: '#15151c', panel2: '#26262f', text: '#ffffff', muted: '#a0a0b0', accent: '#ffd84a', accentText: '#2a2200', comp: '#6aa8ff', compText: '#06142e', labelBg: '#000000a6', labelFg: '#ffffff', shadow: '#0b1a0a' },
+  day: { bg1: '#6fbcf7', bg2: '#cdeeff', fT: '#5fb34a', fF: '#8a5a35', fS: '#6e4528', line: '#454545', bT: '#8f8f8f', bS: '#6b6b6b', bStripe: '#707070', wall: '#a9a9ad', panel: '#ffffff', panel2: '#ececf0', text: '#1f1f25', muted: '#666670', accent: '#d4302c', accentText: '#ffffff', comp: '#7a3fc0', labelBg: '#ffffffe0', labelFg: '#1f1f25', shadow: '#2f6b28' },
+  paint: (p, n) => ({
+    defs: k => bgDef(k, p) + (n ? poolDef(k, '#ffcf5a', 0.45) : ''),
+    bg: k => {
+      let s = bgRect(k)
+      if (n) { s += '<rect x="40" y="150" width="50" height="50" fill="#e8ecff"/>'; for (let i = 0; i < 30; i++) s += `<rect x="${(i * 151) % VW}" y="${110 + (i * 67) % 300}" width="3" height="3" fill="#ffffff" opacity="${(0.3 + (i % 3) * 0.2).toFixed(1)}"/>` }
+      else { s += '<rect x="34" y="140" width="56" height="56" fill="#fff3a6"/>'; for (const [x, y, w] of [[20, 250, 90], [30, 400, 70]]) s += `<g><rect x="${x}" y="${y}" width="${w}" height="20" fill="#ffffff"/><rect x="${x + 16}" y="${y - 13}" width="${w * 0.5}" height="13" fill="#ffffff"/><animateTransform attributeName="transform" type="translate" values="0 0;26 0;0 0" dur="30s" repeatCount="indefinite"/></g>` }
+      return s
+    },
+    floor: k => slabOf(p) + checker(shade(p.fT, -0.08)) + (n ? pools(k) : ''),
+  }),
 },
 {
-  k: 'papier', light: true, name: 'Papierschnitt', font: "Georgia, 'Iowan Old Style', serif",
+  k: 'papier', name: 'Papierschnitt', font: "Georgia, 'Iowan Old Style', serif",
   col: { fable: '#d9a441', opus: '#c8553d', sonnet: '#3e6fa8', haiku: '#5c9a6b', orch: '#7a5ea8' },
-  defs: k => `<filter id="${k}-grain"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 .35  0 0 0 0 .28  0 0 0 0 .2  0 0 0 .5 0"/></filter>`,
-  bg: () => `<rect width="${VW}" height="${VH}" fill="#ece1cc"/>`,
-  floor: k => `<g filter="url(#${k}-drop)">${slab({ top: '#dccdae', front: '#c7b48f', side: '#b8a37c' })}</g>` + poly([P(FX0 + 0.7, FD0 + 0.6), P(FX1 - 0.6, FD0 + 0.6), P(FX1 - 0.6, FD1 - 0.5), P(FX0 + 0.7, FD1 - 0.5)], '#e6d9bd'),
-  belt: { top: '#8c6f4e', side: '#6f573c', filter: 'drop' },
   fig: { kind: 'paper', skin: '#f6ecdb' },
-  console: '#cdbb98',
-  pkg: { top: '#fbf6ec', front: '#efe5d2', side: '#e0d3ba', seal: '#a8322a', filter: 'drop', stampStroke: '#fff' },
-  chat: { frame: '#fbf6ec', screen: '#fffdf8', head: '#f1e8d6', text: '#3b3026', muted: '#8a7b68', user: '#c8553d', ai: '#efe5d2', accent: '#5c9a6b', accentText: '#fff', input: '#fbf6ec', inputStroke: '#d6c6a8', slot: '#6f573c', stroke: '#d6c6a8', sw: 1 },
-  activeUnder: (k, F, B, col) => { const c = [B[0], B[1] - 30], p = []; for (let i = 0; i < 16; i++) { const r = i % 2 ? 22 : 46, a = i * Math.PI / 8; p.push([c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r * 0.8]) } const cc = `${r1(c[0])} ${r1(c[1])}`; return `<g opacity=".3">${poly(p, col)}<animateTransform attributeName="transform" type="rotate" values="0 ${cc};8 ${cc};0 ${cc}" dur="2s" repeatCount="indefinite"/></g>` },
-  label: { fill: '#3b3026', bg: '#fbf6ec', size: 12, italic: true, weight: 500, font: 'Georgia, serif', rx: 2, wf: 0.55 },
-  bubble: { bg: '#3b3026', fg: '#fbf6ec', rx: 2 },
-  link: '#7a5ea8',
-  overlay: k => `<rect width="${VW}" height="${VH}" filter="url(#${k}-grain)" opacity=".22"/>`,
+  pkg: { top: '#fbf6ec', front: '#efe5d2', side: '#e0d3ba', seal: '#a8322a', stampStroke: '#fff' },
+  opts: { beltFilter: 'drop', noShadow: true, noBeltShadow: true }, lab: { size: 12, italic: true, weight: 500, font: 'Georgia, serif', rx: 2, wf: 0.55 }, bub: { rx: 2 },
+  night: { bg1: '#232a3a', bg2: '#141926', fT: '#333c52', fF: '#272f42', fS: '#202738', line: '#46506a', bT: '#c2925a', bS: '#946c3e', wall: '#2a3245', panel: '#1b2130', panel2: '#2c3549', text: '#f1e9d8', muted: '#9aa3b8', accent: '#ffcf70', accentText: '#3a2a06', comp: '#e58a6a', compText: '#3a1206', labelBg: '#1b2130e6', labelFg: '#f1e9d8', shadow: '#0c1019' },
+  day: { bg1: '#f1e8d6', bg2: '#e6dac3', fT: '#e9ddc4', fF: '#cdbd9c', fS: '#bdab87', line: '#d6c6a8', bT: '#3f8a8f', bS: '#2c686d', wall: '#ddcfb2', panel: '#fffdf8', panel2: '#f1e8d6', text: '#3b3026', muted: '#8a7b68', accent: '#a8322a', accentText: '#ffffff', comp: '#c9712b', labelBg: '#fbf6ec', labelFg: '#3b3026', shadow: '#8c7a5c' },
+  paint: (p, n) => ({
+    defs: k => bgDef(k, p) + `<filter id="${k}-grain"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 .35  0 0 0 0 .28  0 0 0 0 .2  0 0 0 .5 0"/></filter>` + (n ? poolDef(k, '#ffd9a0', 0.38) : ''),
+    bg: k => bgRect(k),
+    floor: k => `<g filter="url(#${k}-drop)">${slabOf(p)}</g>` + poly([P(FX0 + 0.7, FD0 + 0.6), P(FX1 - 0.6, FD0 + 0.6), P(FX1 - 0.6, FD1 - 0.5), P(FX0 + 0.7, FD1 - 0.5)], shade(p.fT, 0.18)) + (n ? pools(k) : ''),
+    overlay: k => `<rect width="${VW}" height="${VH}" filter="url(#${k}-grain)" opacity="${n ? 0.12 : 0.2}"/>`,
+  }),
 },
 {
   k: 'arcade', name: 'Arcade', font: "'Lucida Console', ui-monospace, monospace", snap: 4,
   col: { fable: '#ffa300', opus: '#ff004d', sonnet: '#29adff', haiku: '#00e436', orch: '#ff77a8' },
-  bg: () => `<rect width="${VW}" height="${VH}" fill="#1d2b53"/>`,
-  floor: () => slab({ top: '#5f574f', front: '#000000', side: '#111111' }) + checker('#544d46'),
-  belt: { top: '#000000', side: '#5f574f', stripe: '#ffec27', gap: 0.35, stripeW: 4, rail: '#c2c3c7', railW: 2 },
   fig: { kind: 'voxel', skin: '#ffccaa', stroke: '#000000', sw: 1.2, legs: '#1d2b53' },
-  console: '#83769c',
   pkg: { top: '#c0683a', front: '#ab5236', side: '#7e2553', stroke: '#000', sw: 1.5, stampStroke: '#000' },
-  chat: { frame: '#c2c3c7', screen: '#000000', head: '#1d2b53', text: '#00e436', muted: '#008751', user: '#7e2553', userText: '#fff1e8', ai: '#111111', accent: '#ffec27', input: '#000', inputStroke: '#00e436', slot: '#1d2b53', stroke: '#000', sw: 2 },
-  activeUnder: (k, F, B) => `<rect x="${r1(B[0] - 30)}" y="${r1(B[1] - 6)}" width="60" height="12" fill="none" stroke="#ffec27" stroke-width="4"><animate attributeName="opacity" values="1;0" dur="0.5s" calcMode="discrete" repeatCount="indefinite"/></rect>`,
-  label: { fill: '#fff1e8', bg: '#000000', size: 10, upper: true, rx: 0, wf: 0.7, weight: 700 },
-  bubble: { bg: '#ffec27', fg: '#000000', rx: 0 },
-  link: '#ff77a8',
-  overlay: (k, state) => scan(3, 0.22) + `<text x="${VW - 14}" y="${VH - 16}" text-anchor="end" font-family="Lucida Console, monospace" font-size="16" font-weight="700" fill="#ffec27">GELIEFERT ${String(state.counts.done).padStart(4, '0')}</text>`,
+  opts: { gap: 0.35, stripeW: 4, railW: 2, chatSw: 2, noShadow: true, noBeltShadow: true }, lab: { size: 10, upper: true, rx: 0, wf: 0.7, weight: 700 }, bub: { rx: 0 },
+  night: { bg1: '#1d2b53', bg2: '#0e1630', fT: '#5f574f', fF: '#000000', fS: '#111111', line: '#000000', bT: '#000000', bS: '#5f574f', bStripe: '#ffec27', rail: '#c2c3c7', wall: '#83769c', panel: '#000000', panel2: '#1d2b53', text: '#00e436', muted: '#008751', accent: '#ffec27', accentText: '#000000', comp: '#ff77a8', compText: '#000000', labelBg: '#000000', labelFg: '#fff1e8', shadow: '#000000' },
+  day: { bg1: '#fff1e8', bg2: '#ffe3cf', fT: '#c2c3c7', fF: '#5f574f', fS: '#4a443e', line: '#1d2b53', bT: '#1d2b53', bS: '#83769c', bStripe: '#ffa300', rail: '#ffffff', wall: '#c2c3c7', panel: '#ffffff', panel2: '#fff1e8', text: '#1d2b53', muted: '#5f574f', accent: '#008751', accentText: '#ffffff', comp: '#ab5236', labelBg: '#ffffff', labelFg: '#1d2b53', shadow: '#5f574f' },
+  paint: (p, n) => ({
+    defs: k => bgDef(k, p),
+    bg: k => bgRect(k),
+    floor: () => slabOf(p) + checker(shade(p.fT, -0.1)),
+    overlay: (k, state) => (n ? scan(3, 0.22) : '') + `<text x="${VW - 14}" y="${VH - 16}" text-anchor="end" font-family="Lucida Console, monospace" font-size="16" font-weight="700" fill="${n ? '#ffec27' : '#1d2b53'}">GELIEFERT ${String(state.counts.done).padStart(4, '0')}</text>`,
+  }),
 },
 {
   k: 'holo', name: 'Holo-Labor', font: "'Segoe UI', system-ui, sans-serif",
   col: { fable: '#ffd166', opus: '#ff8fab', sonnet: '#5ec8ff', haiku: '#3ff2a8', orch: '#c3a6ff' },
-  defs: k => `<radialGradient id="${k}-bg" cx="50%" cy="60%" r="75%"><stop offset="0" stop-color="#083238"/><stop offset="1" stop-color="#020a0c"/></radialGradient><linearGradient id="${k}-scan" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3ff2e0" stop-opacity="0"/><stop offset=".5" stop-color="#3ff2e0" stop-opacity=".16"/><stop offset="1" stop-color="#3ff2e0" stop-opacity="0"/></linearGradient>`,
-  bg: k => `<rect width="${VW}" height="${VH}" fill="url(#${k}-bg)"/>`,
-  floor: k => poly(FLOOR, '#0b3a40', { op: 0.45 }) + grid(0.5, '#3ff2e0', 0.6, 0.14) + grid(2, '#3ff2e0', 1, 0.3) + `<polygon points="${pts(FLOOR)}" fill="none" stroke="#3ff2e0" stroke-width="1.4" filter="url(#${k}-glow)"/>`,
-  belt: { top: '#3ff2e01c', side: '#3ff2e00d', stroke: '#3ff2e0aa', sw: 0.8, stripe: '#3ff2e055', gap: 0.25 },
   fig: { kind: 'holo' },
-  console: '#0d4d55', consoleO: { stroke: '#3ff2e0', sw: 0.8 },
   pkg: { top: '#ffd16633', front: '#ffd16622', side: '#ffd16618', stroke: '#ffd166', sw: 1.4, filter: 'glow' },
-  chat: { frame: '#0a3a40', screen: '#021316', head: '#06262b', text: '#bff9f3', muted: '#5fa8a1', user: '#0f5a61', ai: '#04201f', aiStroke: '#3ff2e0', accent: '#3ff2e0', accentText: '#021316', input: '#021a1d', inputStroke: '#3ff2e077', slot: '#000', stroke: '#3ff2e0', sw: 0.8 },
-  activeUnder: (k, F, B, col) => { let s = ''; for (let i = 0; i < 3; i++) s += `<ellipse cx="${r1(B[0])}" cy="${r1(B[1])}" rx="${r1(0.55 * S)}" ry="${r1(0.2 * S)}" fill="none" stroke="${col}" stroke-width="1.6"><animate attributeName="cy" from="${r1(B[1])}" to="${r1(B[1] - 70)}" dur="1.2s" begin="${(i * 0.4).toFixed(1)}s" repeatCount="indefinite"/><animate attributeName="opacity" from="1" to="0" dur="1.2s" begin="${(i * 0.4).toFixed(1)}s" repeatCount="indefinite"/></ellipse>`; return s },
-  label: { fill: '#bff9f3', size: 10, upper: true, ls: 2, weight: 400, wf: 0.72 },
-  bubble: { bg: '#3ff2e0', fg: '#021316', rx: 2 },
-  link: '#3ff2e0',
-  overlay: k => `<rect y="-120" width="${VW}" height="120" fill="url(#${k}-scan)"><animate attributeName="y" from="-120" to="${VH}" dur="5s" repeatCount="indefinite"/></rect>`,
+  opts: { gap: 0.25, beltSw: 0.8, chatSw: 0.8, consoleSw: 0.8, glow: true, noShadow: true, noBeltShadow: true }, lab: { size: 10, upper: true, ls: 2, weight: 400, wf: 0.72 }, bub: { rx: 2 },
+  night: { bg1: '#083238', bg2: '#020a0c', fT: '#0b3a40', fF: '#072a2f', fS: '#052125', line: '#3ff2e0', bT: '#3ff2e01c', bS: '#3ff2e00d', bStripe: '#3ff2e055', wall: '#0a3a40', panel: '#021316', panel2: '#06262b', text: '#bff9f3', muted: '#5fa8a1', accent: '#3ff2e0', accentText: '#021316', comp: '#ff8f6b', compText: '#2a0a02', labelFg: '#bff9f3', shadow: '#000000' },
+  day: { bg1: '#f1fafa', bg2: '#d7eeee', fT: '#dff1f1', fF: '#b9dcdc', fS: '#a5cece', line: '#178a84', bT: '#178a8426', bS: '#178a8418', bStripe: '#178a8466', wall: '#cfe8e8', panel: '#ffffff', panel2: '#e6f4f4', text: '#0c3b38', muted: '#4f8480', accent: '#6a4fd0', accentText: '#ffffff', comp: '#d9583f', labelFg: '#0c3b38', shadow: '#7fb0ad' },
+  paint: (p, n) => ({
+    defs: k => bgDef(k, p, true) + (n ? `<linearGradient id="${k}-scan" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3ff2e0" stop-opacity="0"/><stop offset=".5" stop-color="#3ff2e0" stop-opacity=".16"/><stop offset="1" stop-color="#3ff2e0" stop-opacity="0"/></linearGradient>` : ''),
+    bg: k => bgRect(k),
+    floor: k => poly(FLOOR, p.fT, { op: n ? 0.45 : 0.9 }) + grid(0.5, p.line, 0.6, 0.14) + grid(2, p.line, 1, 0.3) + `<polygon points="${pts(FLOOR)}" fill="none" stroke="${p.line}" stroke-width="1.4"${n ? ` filter="url(#${k}-glow)"` : ''}/>`,
+    overlay: k => (n ? `<rect y="-120" width="${VW}" height="120" fill="url(#${k}-scan)"><animate attributeName="y" from="-120" to="${VH}" dur="5s" repeatCount="indefinite"/></rect>` : ''),
+  }),
 },
 {
-  k: 'holz', light: true, name: 'Holzspielzeug', font: "'Segoe UI', system-ui, sans-serif",
+  k: 'holz', name: 'Holzspielzeug', font: "'Segoe UI', system-ui, sans-serif",
   col: { fable: '#e8a628', opus: '#d6452f', sonnet: '#2f6fd6', haiku: '#2e9e5b', orch: '#8a4fc7' },
-  defs: k => `<linearGradient id="${k}-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9eef2"/><stop offset="1" stop-color="#cfd8df"/></linearGradient>` +
-    `<linearGradient id="${k}-woodv" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c9955c"/><stop offset=".45" stop-color="#f0cc98"/><stop offset="1" stop-color="#b9824a"/></linearGradient>` +
-    `<radialGradient id="${k}-ball" cx="38%" cy="32%" r="70%"><stop offset="0" stop-color="#fbe3bf"/><stop offset="1" stop-color="#d49a5e"/></radialGradient>` +
-    `<linearGradient id="${k}-board" x1="0" y1="0" x2="1" y2=".2"><stop offset="0" stop-color="#e7c18b"/><stop offset="1" stop-color="#d8ab70"/></linearGradient>`,
-  bg: k => `<rect width="${VW}" height="${VH}" fill="url(#${k}-bg)"/>`,
-  floor: k => { let s = slab({ top: `url(#${k}-board)`, front: '#b98a58', side: '#a3774a' }); for (let d = FD0 + 0.2; d < FD1; d += 0.42) s += line(P(FX0, d), P(FX1, d + Math.sin(d * 3) * 0.08), '#b98a58', 1, ' opacity=".35"'); return s },
-  beltShadow: '#8a623b55',
-  belt: { top: '#4f7d5a', side: '#c49a68', stripe: '#5d8c67', gap: 0.5, stripeW: 2, legs: '#b07f4c' },
   fig: { kind: 'peg' },
-  shadow: '#8a623b',
-  console: '#c49a68',
   pkg: { top: '#f0cf8c', front: '#e8c07a', side: '#d4a85e', stroke: '#b5874a', sw: 0.8, letter: '#d6452f' },
-  chat: { frame: '#c49a68', screen: '#fbf7ef', head: '#efe4d1', text: '#4a3524', muted: '#9a836b', user: '#2f6fd6', ai: '#efe4d1', accent: '#2e9e5b', accentText: '#fff', input: '#ffffff', inputStroke: '#dcc7a6', slot: '#5a3f26', stroke: '#a3774a', sw: 1 },
-  activeUnder: (k, F, B, col) => `<ellipse cx="${r1(B[0])}" cy="${r1(B[1])}" rx="${r1(0.6 * S)}" ry="${r1(0.24 * S)}" fill="${col}" opacity=".25"/>`,
-  label: { fill: '#4a3524', bg: '#fbf7ef', stroke: '#c49a68', size: 11, weight: 700, rx: 10 },
-  bubble: { bg: '#4a3524', fg: '#fbf7ef' },
-  link: '#8a4fc7',
-  overlay: () => `<polygon points="560,0 700,0 420,${VH} 280,${VH}" fill="#ffffff" opacity=".13"/><polygon points="730,0 790,0 510,${VH} 450,${VH}" fill="#ffffff" opacity=".09"/>`,
+  opts: { gap: 0.5, stripeW: 2, legs: true, labelStroke: true }, lab: { size: 11, weight: 700, rx: 10 },
+  night: { bg1: '#1f2740', bg2: '#0d111f', fT: '#7c5a36', fF: '#553c22', fS: '#46311b', line: '#553c22', bT: '#2c5a3e', bS: '#6b4a2a', bStripe: '#3a6e4e', wall: '#3a2c20', panel: '#1b1510', panel2: '#2e241a', text: '#f4e7d2', muted: '#a8957c', accent: '#ffc861', accentText: '#3a2806', comp: '#7fb6ff', compText: '#06203f', labelBg: '#1b1510e6', labelFg: '#f4e7d2', shadow: '#0a0705' },
+  day: { bg1: '#eef3f6', bg2: '#d3dde4', fT: '#e7c18b', fF: '#b98a58', fS: '#a3774a', line: '#b98a58', bT: '#2f7fa3', bS: '#c49a68', bStripe: '#4d9bbd', wall: '#f3e6cf', panel: '#fffaf0', panel2: '#efe4d1', text: '#4a3524', muted: '#9a836b', accent: '#c8324a', accentText: '#ffffff', comp: '#1f6f93', labelBg: '#fffaf0', labelFg: '#4a3524', shadow: '#8a623b' },
+  paint: (p, n) => ({
+    defs: k => bgDef(k, p) +
+      `<linearGradient id="${k}-woodv" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c9955c"/><stop offset=".45" stop-color="#f0cc98"/><stop offset="1" stop-color="#b9824a"/></linearGradient>` +
+      `<radialGradient id="${k}-ball" cx="38%" cy="32%" r="70%"><stop offset="0" stop-color="#fbe3bf"/><stop offset="1" stop-color="#d49a5e"/></radialGradient>` + (n ? poolDef(k, '#ffcf80', 0.42) : ''),
+    bg: k => bgRect(k),
+    floor: k => { let s = slabOf(p); for (let d = FD0 + 0.2; d < FD1; d += 0.42) s += line(P(FX0, d), P(FX1, d + Math.sin(d * 3) * 0.08), p.line, 1, ' opacity=".35"'); return s + (n ? pools(k) : '') },
+  }),
 },
 {
   k: 'kino', name: 'Nachtschicht', font: "Bahnschrift, 'Arial Narrow', sans-serif",
   col: { fable: '#c9a24a', opus: '#b8583a', sonnet: '#4f6fae', haiku: '#4f9070', orch: '#7f6aa8' },
-  defs: k => `<radialGradient id="${k}-fl" cx="50%" cy="50%" r="60%"><stop offset="0" stop-color="#23262b"/><stop offset="1" stop-color="#0f1012"/></radialGradient>` +
-    `<linearGradient id="${k}-cone" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff4dc" stop-opacity=".05"/><stop offset="1" stop-color="#fff4dc" stop-opacity=".3"/></linearGradient>` +
-    `<radialGradient id="${k}-pool" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#fff4dc" stop-opacity=".45"/><stop offset="1" stop-color="#fff4dc" stop-opacity="0"/></radialGradient>` +
-    `<radialGradient id="${k}-vig" cx="50%" cy="55%" r="65%"><stop offset=".45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#030304" stop-opacity=".85"/></radialGradient>`,
-  bg: () => `<rect width="${VW}" height="${VH}" fill="#08090b"/>`,
-  floor: k => slab({ top: `url(#${k}-fl)`, front: '#0b0c0e', side: '#08090a' }),
-  belt: { top: '#111215', side: '#1b1d21', stripe: '#1e2024', gap: 0.22, rail: '#3e424a', railW: 1 },
   fig: { kind: 'block', body: '#1c1e23', skin: '#26292f', stroke: '#3a3e46', sw: 0.6, lit: true },
-  console: '#16181c',
   pkg: { top: '#ffc777', front: '#ffb347', side: '#e08f22', stroke: '#fff0d0', sw: 0.5, filter: 'glow' },
-  chat: { frame: '#121418', screen: '#0b0d10', head: '#14171b', text: '#d9d4c7', muted: '#6c6a64', user: '#3b3f48', ai: '#15181c', accent: '#ffb347', accentText: '#1b1205', input: '#101216', slot: '#000', stroke: '#22252b', sw: 1 },
-  label: { fill: '#d9d4c7', size: 11, upper: true, ls: 1.6, weight: 600, font: "Bahnschrift, 'Arial Narrow', sans-serif", wf: 0.66 },
-  bubble: { bg: '#ffb347', fg: '#1b1205', rx: 2 },
-  link: '#ffb347',
-  overlayMid: (k, active) => {
-    let s = ''
-    for (const idx of active.keys()) {
-      const B = P(ST[idx].x, ST[idx].d, 0)
-      s += `<polygon points="${r1(B[0] - 12)},0 ${r1(B[0] + 12)},0 ${r1(B[0] + 75)},${r1(B[1] + 12)} ${r1(B[0] - 75)},${r1(B[1] + 12)}" fill="url(#${k}-cone)"/><ellipse cx="${r1(B[0])}" cy="${r1(B[1])}" rx="80" ry="26" fill="url(#${k}-pool)"/>`
-    }
-    return s
-  },
-  overlay: k => `<rect width="${VW}" height="${VH}" fill="url(#${k}-vig)"/><rect width="${VW}" height="8" fill="#000"/><rect y="${VH - 22}" width="${VW}" height="22" fill="#000"/>`,
+  opts: { gap: 0.22, railW: 1, noShadow: true, noBeltShadow: true }, lab: { size: 11, upper: true, ls: 1.6, weight: 600, font: "Bahnschrift, 'Arial Narrow', sans-serif", wf: 0.66 }, bub: { rx: 2 },
+  night: { bg1: '#0b0c0f', bg2: '#050506', fT: '#1c1e22', fF: '#0b0c0e', fS: '#08090a', line: '#22252b', bT: '#111215', bS: '#1b1d21', bStripe: '#1e2024', rail: '#3e424a', wall: '#121418', panel: '#0b0d10', panel2: '#15181c', text: '#d9d4c7', muted: '#6c6a64', accent: '#ffb347', accentText: '#1b1205', comp: '#6f9bd6', compText: '#06142a', labelFg: '#d9d4c7', shadow: '#000000' },
+  day: { bg1: '#eceff3', bg2: '#d3d9e0', fT: '#cfd5dd', fF: '#aab2bd', fS: '#98a1ad', line: '#b3bbc6', bT: '#27496b', bS: '#8fa3b8', bStripe: '#3a6088', rail: '#e4772b', wall: '#bcc4ce', panel: '#ffffff', panel2: '#edf0f4', text: '#1a2028', muted: '#66707c', accent: '#c8324a', accentText: '#ffffff', comp: '#e4772b', labelFg: '#1a2028', shadow: '#7c8691' },
+  paint: (p, n) => ({
+    defs: k => bgDef(k, p) + (n ? `<linearGradient id="${k}-cone" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff4dc" stop-opacity=".05"/><stop offset="1" stop-color="#fff4dc" stop-opacity=".3"/></linearGradient>` + poolDef(k, '#fff4dc', 0.45) + vigDef(k, '#030304', 0.85) : ''),
+    bg: k => bgRect(k),
+    floor: () => slabOf(p),
+    // Night only: the working stations stand in a spotlight.
+    overlayMid: (k, active) => {
+      if (!n) return ''
+      let s = ''
+      for (const idx of active.keys()) {
+        const B = P(ST[idx].x, ST[idx].d, 0)
+        s += `<polygon points="${r1(B[0] - 12)},100 ${r1(B[0] + 12)},100 ${r1(B[0] + 80)},${r1(B[1] + 12)} ${r1(B[0] - 80)},${r1(B[1] + 12)}" fill="url(#${k}-cone)"/><ellipse cx="${r1(B[0])}" cy="${r1(B[1])}" rx="86" ry="30" fill="url(#${k}-pool)"/>`
+      }
+      return s
+    },
+    overlay: k => (n ? vig(k) : ''),
+  }),
 },
 ]
+// A design in one mode: its palette turned into what the drawing code reads.
+function resolve(d, mode) {
+  const n = mode !== 'hell', p = n ? d.night : d.day, o = d.opts || {}
+  const glow = n && o.glow === true
+  return {
+    ...d,
+    beltShadow: o.noBeltShadow ? undefined : p.shadow + '66',
+    shadow: o.noShadow ? undefined : p.shadow,
+    console: p.bS.slice(0, 7),
+    consoleO: o.consoleSw ? { stroke: o.puffy ? p.bS : p.line, sw: o.consoleSw } : {},
+    belt: { top: p.bT, side: p.bS, stripe: p.bStripe, gap: o.gap, stripeW: o.stripeW, rail: p.rail, railW: o.railW, railFilter: glow ? 'glow' : undefined, legs: o.legs ? shade(p.bS, -0.2) : undefined, stroke: o.beltSw ? (o.puffy ? p.bT : p.line) : undefined, sw: o.beltSw, center: o.center ? p.line : undefined, filter: o.beltFilter },
+    wall: p.wall,
+    chat: { frame: p.wall, screen: p.panel, head: p.panel2, text: p.text, muted: p.muted, user: p.comp, userText: p.compText || '#ffffff', ai: p.panel2, aiStroke: p.line, accent: p.accent, accentText: p.accentText, input: p.panel2, inputStroke: p.line, slot: p.slot || (n ? '#000000' : shade(p.wall, -0.35)), stroke: o.puffy ? p.panel : p.line, sw: o.chatSw || 1 },
+    label: { ...(d.lab || {}), fill: p.labelFg, bg: p.labelBg, stroke: o.labelStroke ? p.line : undefined },
+    bubble: { ...(d.bub || {}), bg: p.accent, fg: p.accentText },
+    link: p.comp,
+    pkg: { ...d.pkg, filter: n ? d.pkg.filter : undefined },
+    activeUnder: (k, F, B) => ring(k, B, n ? p.accent : p.comp, glow),
+    ...d.paint(p, n),
+  }
+}
 export const DEFAULT_DESIGN = 'claude'
 // Width over height of the drawing.
 export const ASPECT = VW / VH
@@ -678,7 +687,7 @@ function activity(state) {
 }
 
 export function renderScene(state, design, note = '', mode = '') {
-  const st = DESIGNS.find(d => d.k === design) || DESIGNS[0]
+  const st = resolve(DESIGNS.find(d => d.k === design) || DESIGNS[0], mode)
   SNAP = st.snap || 0
   try {
     const k = st.k, col = Object.assign({}, MC, st.col || {})
@@ -703,9 +712,6 @@ export function renderScene(state, design, note = '', mode = '') {
     items.sort((a, b) => b.d - a.d || a.x - b.x)
     let out = `<svg viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"${st.snap ? ' shape-rendering="crispEdges"' : ''}>`
     out += `<defs>${baseDefs(k)}${st.defs ? st.defs(k) : ''}</defs>`
-    // A design is drawn in its own mode; the other one is its luminance flipped, hues kept.
-    const flip = (mode === 'hell' || mode === 'dunkel') && (mode === 'hell') !== (st.light === true)
-    if (flip) out += '<g filter="url(#flip)">'
     out += st.bg(k) + st.floor(k)
     if (st.beltShadow) out += `<polygon points="${pts([...PATH.outer.map(q => P(q[0] + 0.15, q[1] - 0.1, 0)), ...PATH.inner.slice().reverse().map(q => P(q[0] + 0.15, q[1] - 0.1, 0))])}" fill="${st.beltShadow}" filter="url(#${k}-blur)"/>`
     out += wallSvg(st) + boardSvg(st, state, active)
@@ -725,7 +731,7 @@ export function renderScene(state, design, note = '', mode = '') {
     if (st.overlay) out += st.overlay(k, state)
     out += logSvg(st, state.log) + headerSvg(st, state)
     if (note) out += `<text x="${VW - 12}" y="${VH - 8}" text-anchor="end" font-size="11" fill="${st.label.fill}" opacity=".45" font-family="${st.font}">${esc(note)}</text>`
-    return out + (flip ? '</g>' : '') + '</svg>'
+    return out + '</svg>'
   } finally {
     SNAP = 0
   }
