@@ -1,160 +1,404 @@
 <title>Fließband Orchestrator</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
-/* Layout: eine animierte Szene (Orchestrator oben, Fließband mit Fable, Sonnet, Opus), darunter Statuszeile und Protokoll. Bewusst nur dunkel (Midnight-Neon). */
-:root{--bg:#0d0e24;--s1:#14163a;--s2:#1b1d48;--line:#2a2d62;--fg:#eceeff;--muted:#9ea4d6;
---amber:#ffd84a;--violet:#c58bff;--green:#3dffa0;--orange:#ff9d3c;--rose:#ff5577;
---font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,Menlo,monospace;color-scheme:dark}
-*{box-sizing:border-box}
-body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--font);margin:0;padding-block:28px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-.wrap{max-width:1040px;margin:auto;display:flex;flex-direction:column;gap:16px}
-h1{font-size:1.7rem;margin:0;letter-spacing:-.01em;text-wrap:balance}
-.lead{color:var(--muted);margin:0;max-width:66ch}
-.stage-box{background:var(--s1);border:1px solid var(--line);border-radius:14px;overflow-x:auto}
-svg{display:block;width:100%;min-width:680px;height:auto}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{font:12px var(--mono);padding:4px 10px;border-radius:99px;border:1px solid var(--line);color:var(--muted);transition:.25s}
-.chip.on{color:#0d0e24;background:var(--orange);border-color:var(--orange);font-weight:600}
-.chip.done{color:var(--green);border-color:var(--green)}
-.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-button,select{font:13px var(--font);background:var(--s2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+/* Layout: 3D-Fabrikhalle füllt den Bildschirm; HUD-Glasflächen oben links (Titel, Schritte), oben rechts (Steuerung), unten links (Protokoll). Bewusst nur dunkel: Midnight-Neon-Nachtschicht. */
+:root{
+  --bg:#0b0c20;--glass:rgba(13,14,36,.74);--line:rgba(140,150,230,.22);
+  --fg:#eceeff;--muted:#a3a9da;
+  --amber:#ffd84a;--violet:#c58bff;--green:#3dffa0;--orange:#ff9d3c;
+  --display:'Space Grotesk',system-ui,sans-serif;--body:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 var(--body);overflow:hidden}
+#app{position:fixed;inset:0}
+#stage{position:absolute;inset:0;display:block;width:100%;height:100%;cursor:grab}
+#stage:active{cursor:grabbing}
+.hud{position:absolute;background:var(--glass);border:1px solid var(--line);border-radius:14px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:12px 14px}
+.top-l{top:calc(12px + env(safe-area-inset-top,0px));left:max(16px,env(safe-area-inset-left,0px));max-width:min(560px,calc(100% - 32px))}
+.top-r{top:calc(12px + env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.bot-l{bottom:calc(12px + env(safe-area-inset-bottom,0px));left:max(16px,env(safe-area-inset-left,0px));width:min(430px,calc(100% - 32px))}
+.eyebrow{font:600 10.5px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--orange)}
+h1{font:700 1.5rem/1.15 var(--display);margin:2px 0 8px;letter-spacing:-.01em;text-wrap:balance}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:11.5px var(--mono);padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted);transition:background .25s,color .25s,border-color .25s}
+.chip.on{color:#140b00;background:var(--orange);border-color:var(--orange);font-weight:600}
+.chip.done{color:var(--green);border-color:rgba(61,255,160,.5)}
+button,select{font:600 12.5px var(--body);background:rgba(27,29,72,.9);color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:7px 12px;cursor:pointer}
+button[aria-pressed="true"]{border-color:var(--orange);color:var(--orange)}
 button:focus-visible,select:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
-ul{list-style:none;margin:0;padding:12px 14px;background:var(--s1);border:1px solid var(--line);border-radius:12px;font:12.5px/1.7 var(--mono);color:var(--muted);min-height:9em}
+.loghead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.loghead span:last-child{font:11px var(--mono);color:var(--muted)}
+ul{list-style:none;margin:0;padding:0;font:12px/1.75 var(--mono);color:var(--muted);max-height:8.8em;overflow:hidden}
 li:first-child{color:var(--fg)}
-.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem;color:var(--muted)}
-.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:var(--c)}
-.mover{transform-box:fill-box;transform-origin:center}
-.bubble{opacity:0;transition:opacity .25s}
-.belt{stroke:var(--line);stroke-width:16;stroke-linecap:round}
-.beltdash{stroke:#5560c8;stroke-width:3;stroke-dasharray:6 14;stroke-linecap:round;animation:flow 1s linear infinite}
-.beltdash.back{animation-direction:reverse}
-.paused .beltdash{animation-play-state:paused}
-@keyframes flow{to{stroke-dashoffset:-20}}
-@media (prefers-reduced-motion:reduce){.beltdash{animation:none}}
+li b{font-weight:600}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.tag{position:absolute;transform:translate(-50%,0);text-align:center;white-space:nowrap}
+.tag .n{font:700 13px var(--display);padding:2px 9px;border-radius:7px;background:rgba(11,12,32,.78);border:1px solid var(--c)}
+.tag .r{display:block;font:10.5px var(--mono);color:var(--muted);margin-top:3px}
+.tag .bar{display:block;width:64px;height:4px;margin:4px auto 0;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}
+.tag .bar i{display:block;height:100%;width:0;background:var(--c)}
+.bubble{position:absolute;transform:translate(-50%,-100%) scale(.85);opacity:0;transition:opacity .2s,transform .2s;background:#f6f3e6;color:#16142a;font:600 12.5px var(--body);padding:6px 11px;border-radius:12px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+.bubble::after{content:"";position:absolute;left:50%;bottom:-6px;margin-left:-6px;border:6px solid transparent;border-bottom:0;border-top-color:#f6f3e6}
+.bubble.show{opacity:1;transform:translate(-50%,-100%) scale(1)}
+.pkg{position:absolute;transform:translate(-50%,-100%);font:700 11px var(--mono);padding:2px 7px;border-radius:6px;background:var(--c);color:#100b1e;white-space:nowrap}
+.note{position:absolute;transform:translate(-50%,-50%);font:700 11px var(--mono);width:20px;height:20px;line-height:20px;text-align:center;border-radius:50%;background:#16142a;color:#f6f3e6;border:1px solid #f6f3e6}
+#fail{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:var(--muted)}
+.hint{font-size:11.5px;color:var(--muted);margin-top:8px}
+@media (max-width:640px){
+  h1{font-size:1.15rem}
+  .top-r{top:auto;bottom:calc(12px + env(safe-area-inset-bottom,0px));right:max(16px,env(safe-area-inset-right,0px))}
+  .bot-l{display:none}
+  .hint{display:none}
+}
+@media (prefers-reduced-motion:reduce){.bubble{transition:none}}
 </style>
-<div class="wrap" id="app">
-<h1>Fließband Orchestrator</h1>
-<p class="lead">Entwurf für ein aktives Design: Der Orchestrator legt eine Aufgabe aufs Band. Fable liest sie, Sonnet schreibt den Entwurf, Opus macht den Feinschliff, Fable nimmt ab und schickt alles als PR zurück. Fragen und Hinweise wandern als Zettel.</p>
-<div class="chips" id="chips"></div>
-<div class="stage-box"><svg id="scene" viewBox="0 0 960 440" role="img" aria-label="Animierte Szene: Aufgabe läuft über ein Fließband von Fable über Sonnet und Opus zurück zu Fable und als PR zum Orchestrator"></svg></div>
-<div class="row">
-<button id="play" type="button">Pause</button>
-<label for="speed" style="font-size:13px;color:var(--muted)">Tempo</label>
-<select id="speed"><option value="0.6">langsam</option><option value="1" selected>normal</option><option value="1.8">schnell</option></select>
-<div class="legend"><span style="--c:var(--amber)">Aufgabe</span><span style="--c:var(--green)">Entwurf</span><span style="--c:var(--orange)">Final</span><span style="--c:var(--violet)">Pull Request</span><span style="--c:#f4f0d8">Zettel</span></div>
+<div id="app">
+  <canvas id="stage" aria-label="3D-Fabrikhalle: Aufgaben laufen über ein Fließband von Fable über Sonnet und Opus zurück zu Fable und als Pull Request zum Orchestrator"></canvas>
+  <div id="labels"></div>
+  <div class="hud top-l">
+    <div class="eyebrow">Halle 3 · Nachtschicht</div>
+    <h1>Fließband Orchestrator</h1>
+    <div class="chips" id="chips"></div>
+    <div class="hint">Ziehen zum Drehen, Scrollen oder Pinch zum Zoomen.</div>
+  </div>
+  <div class="hud top-r">
+    <button id="play" type="button">Pause</button>
+    <button id="follow" type="button" aria-pressed="true">Kamera folgt</button>
+    <label for="speed" class="visually-hidden" style="position:absolute;left:-9999px">Tempo</label>
+    <select id="speed"><option value="0.6">Tempo: langsam</option><option value="1" selected>Tempo: normal</option><option value="1.8">Tempo: schnell</option></select>
+  </div>
+  <div class="hud bot-l">
+    <div class="loghead"><span class="eyebrow">Schichtprotokoll</span><span id="clock">00:00</span></div>
+    <ul id="log"></ul>
+  </div>
 </div>
-<ul id="log" aria-live="off"></ul>
-</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
 <script>
-const NS='http://www.w3.org/2000/svg',svg=document.getElementById('scene');
-let paused=false,speed=1,n=0;
-const sleepRaw=ms=>new Promise(r=>setTimeout(r,ms));
-async function sleep(ms){await sleepRaw(ms/speed);while(paused)await sleepRaw(120)}
-function el(tag,a={},p=svg){const x=document.createElementNS(NS,tag);for(const k in a)x.setAttribute(k,a[k]);p.appendChild(x);return x}
-const C={amber:'#ffd84a',violet:'#c58bff',green:'#3dffa0',orange:'#ff9d3c',ink:'#0d0e24'};
+(function(){
+const app=document.getElementById('app'),canvas=document.getElementById('stage'),labels=document.getElementById('labels');
+let renderer;
+try{
+  if(!window.THREE)throw new Error('three');
+  renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+}catch(e){
+  const f=document.createElement('div');f.id='fail';
+  f.textContent='Die 3D-Ansicht braucht WebGL. Dein Browser stellt es gerade nicht bereit. Versuch es in einem anderen Browser oder mit eingeschalteter Hardwarebeschleunigung.';
+  app.appendChild(f);return;
+}
+const T=THREE;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
+renderer.outputEncoding=T.sRGBEncoding;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=.85;
 
-// Band: obere Spur nach rechts, untere Spur zurück
-[[300,''],[372,'back']].forEach(([y,c])=>{
-  el('line',{x1:150,y1:y,x2:780,y2:y,class:'belt'});
-  el('line',{x1:150,y1:y,x2:780,y2:y,class:'beltdash '+c});
+const scene=new T.Scene();
+scene.background=new T.Color(0x0b0c20);
+scene.fog=new T.Fog(0x0b0c20,30,62);
+const camera=new T.PerspectiveCamera(42,1,0.1,200);
+const controls=new T.OrbitControls(camera,canvas);
+controls.enableDamping=true;controls.dampingFactor=.08;
+controls.minDistance=8;controls.maxDistance=40;
+controls.maxPolarAngle=Math.PI*0.47;controls.minPolarAngle=Math.PI*0.12;
+controls.minAzimuthAngle=-Math.PI*0.42;controls.maxAzimuthAngle=Math.PI*0.42;
+controls.enablePan=false;
+
+const C={amber:0xffd84a,violet:0xc58bff,green:0x3dffa0,orange:0xff9d3c,clay:0xe8b49a,ink:0x14152e,metal:0x3a3e6e,steel:0x5a5f95};
+const hexCss=n=>'#'+n.toString(16).padStart(6,'0');
+
+// ---------- Texturen ----------
+function canvasTex(w,h,draw,rx=1,ry=1){
+  const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);
+  const t=new T.CanvasTexture(c);t.encoding=T.sRGBEncoding;t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(rx,ry);t.anisotropy=4;return t;
+}
+const floorTex=canvasTex(512,512,(g,w,h)=>{
+  g.fillStyle='#22233d';g.fillRect(0,0,w,h);
+  for(let i=0;i<5000;i++){const v=Math.random();g.fillStyle=`rgba(${v>.5?255:0},${v>.5?255:0},${v>.5?255:0},${Math.random()*.05})`;g.fillRect(Math.random()*w,Math.random()*h,2,2)}
+  g.strokeStyle='rgba(160,170,255,.07)';g.lineWidth=2;
+  for(let x=0;x<=w;x+=128){g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke();g.beginPath();g.moveTo(0,x);g.lineTo(w,x);g.stroke()}
+},8,6);
+const hazardTex=canvasTex(128,32,(g,w,h)=>{
+  g.fillStyle='#16152a';g.fillRect(0,0,w,h);g.fillStyle='#ffd84a';
+  for(let x=-32;x<w+32;x+=32){g.beginPath();g.moveTo(x,h);g.lineTo(x+16,h);g.lineTo(x+32,0);g.lineTo(x+16,0);g.fill()}
+},6,1);
+function beltTex(){return canvasTex(128,64,(g,w,h)=>{
+  g.fillStyle='#17182e';g.fillRect(0,0,w,h);g.fillStyle='#262848';
+  for(let x=0;x<w;x+=16)g.fillRect(x,0,7,h);
+  g.fillStyle='rgba(197,139,255,.18)';g.fillRect(0,h/2-1,w,2);
+},14,1)}
+const beltTop=beltTex(),beltBack=beltTex(),beltTurn=beltTex();beltTurn.repeat.set(1,3);
+const screenTex=(accent)=>canvasTex(256,160,(g,w,h)=>{
+  g.fillStyle='#0b1030';g.fillRect(0,0,w,h);
+  const cols=['#3dffa0','#ff9d3c','#c58bff','#9ea4d6','#ffd84a'];
+  for(let y=16;y<h-8;y+=13){let x=12+(Math.random()*3|0)*14;while(x<w-30){const len=10+Math.random()*50;g.fillStyle=Math.random()<.3?accent:cols[Math.random()*cols.length|0];g.globalAlpha=.85;g.fillRect(x,y,len,5);x+=len+8;if(Math.random()<.3)break}}
+  g.globalAlpha=1;g.strokeStyle=accent;g.lineWidth=3;g.strokeRect(2,2,w-4,h-4);
 });
-el('path',{d:'M780 300 Q812 336 780 372',fill:'none',stroke:'#2a2d62','stroke-width':16,'stroke-linecap':'round'});
-for(let x=170;x<=770;x+=60){el('circle',{cx:x,cy:309,r:2.5,fill:'#3a3e82'});}
+const wallSign=canvasTex(1024,256,(g,w,h)=>{
+  g.fillStyle='#181a3c';g.fillRect(0,0,w,h);
+  g.fillStyle='rgba(255,216,74,.9)';g.font='700 150px "Space Grotesk",sans-serif';g.textBaseline='middle';g.fillText('HALLE 3',40,h/2+6);
+  g.fillStyle='rgba(197,139,255,.75)';g.font='600 46px "JetBrains Mono",monospace';g.font='600 40px "JetBrains Mono",monospace';g.fillText('MODELL-MONTAGE',700,h/2-28);g.fillText('SCHICHT 22–06',700,h/2+34);
+});
 
-function robot(name,color,x,y,scale=1,sub=''){
-  const g=el('g',{transform:`translate(${x},${y}) scale(${scale})`});
-  el('line',{x1:0,y1:-34,x2:0,y2:-22,stroke:color,'stroke-width':3},g);
-  el('circle',{cx:0,cy:-38,r:5,fill:color},g);
-  el('rect',{x:-22,y:-22,width:44,height:36,rx:9,fill:color},g);
-  el('circle',{cx:-8,cy:-6,r:4.5,fill:C.ink},g);el('circle',{cx:8,cy:-6,r:4.5,fill:C.ink},g);
-  el('rect',{x:-18,y:18,width:36,height:34,rx:8,fill:color,opacity:.82},g);
-  el('rect',{x:-30,y:22,width:9,height:24,rx:4,fill:color,opacity:.7},g);el('rect',{x:21,y:22,width:9,height:24,rx:4,fill:color,opacity:.7},g);
-  const t=el('text',{x:0,y:70,'text-anchor':'middle',fill:'#eceeff','font-size':13,'font-weight':600,'font-family':'Inter,system-ui,sans-serif'},g);t.textContent=name;
-  if(sub){const s=el('text',{x:0,y:84,'text-anchor':'middle',fill:'#9ea4d6','font-size':10.5,'font-family':'JetBrains Mono,monospace'},g);s.textContent=sub}
-  el('rect',{x:-24,y:90,width:48,height:4,rx:2,fill:'#2a2d62'},g);
-  const bar=el('rect',{x:-24,y:90,width:48,height:4,rx:2,fill:color,style:'transform-box:fill-box;transform-origin:left;transform:scaleX(0)'},g);
-  const bg=el('g',{class:'bubble',transform:`translate(${x},${y-62*scale})`});
-  const br=el('rect',{x:0,y:-14,width:10,height:24,rx:7,fill:'#eceeff'},bg);
-  const bt=el('text',{x:0,y:3,'text-anchor':'middle',fill:C.ink,'font-size':11.5,'font-weight':600,'font-family':'Inter,system-ui,sans-serif'},bg);
-  return{x,y,bar,bg,br,bt,scale};
-}
-const orch=robot('Orchestrator',C.amber,480,64,1.25);
-const fable=robot('Fable',C.violet,95,238,1,'liest · prüft');
-const sonnet=robot('Sonnet',C.green,340,196,1,'Entwurf');
-const opus=robot('Opus',C.orange,570,196,1,'Feinschliff');
-// Schreibtisch des Orchestrators
-el('rect',{x:420,y:128,width:120,height:10,rx:5,fill:'#2a2d62'});
+// ---------- Material ----------
+const M=(color,o={})=>new T.MeshStandardMaterial(Object.assign({color,roughness:.75,metalness:.15},o));
+const glow=(color,i=1.6)=>new T.MeshStandardMaterial({color,emissive:color,emissiveIntensity:i,roughness:.4});
+const add=(geo,mat,x=0,y=0,z=0,parent=scene,shadow=true)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y,z);if(shadow){m.castShadow=true;m.receiveShadow=true}parent.add(m);return m};
 
-async function say(r,text,ms=1500){
-  r.bt.textContent=text;const w=r.bt.getBBox().width+22;
-  r.br.setAttribute('width',w);r.br.setAttribute('x',-w/2);
-  r.bg.style.opacity=1;await sleep(ms);r.bg.style.opacity=0;
+// ---------- Halle ----------
+const floor=add(new T.PlaneGeometry(52,34),new T.MeshStandardMaterial({map:floorTex,roughness:.9,metalness:.05}),0,0,-1,scene);
+floor.rotation.x=-Math.PI/2;floor.castShadow=false;
+// Rückwand mit Fensterbändern
+add(new T.BoxGeometry(52,13,.5),M(0x15173a),0,6.5,-15);
+for(let i=-5;i<=5;i++){
+  const win=add(new T.PlaneGeometry(3.4,3.2),new T.MeshBasicMaterial({color:0x2a3780}),i*4.4,9.2,-14.7,scene,false);
+  for(let k=1;k<3;k++)add(new T.BoxGeometry(3.4,.08,.08),M(0x0e0f26),i*4.4,7.6+k*1.07,-14.65,scene,false);
+  add(new T.BoxGeometry(.08,3.2,.08),M(0x0e0f26),i*4.4,9.2,-14.65,scene,false);
 }
-async function work(r,ms){
-  r.bar.style.transition='none';r.bar.style.transform='scaleX(0)';r.bar.getBoundingClientRect();
-  r.bar.style.transition=`transform ${ms/speed}ms linear`;r.bar.style.transform='scaleX(1)';
-  await sleep(ms);
-  r.bar.style.transition='none';r.bar.style.transform='scaleX(0)';
+const sign=add(new T.PlaneGeometry(10,2.5),new T.MeshStandardMaterial({map:wallSign,roughness:.9}),-12,4.6,-14.7,scene,false);
+// Seitenwände
+[-26,26].forEach(x=>add(new T.BoxGeometry(.5,13,34),M(0x13152f),x,6.5,-1));
+// Stützen und Dachbinder
+for(let x=-20;x<=20;x+=10){
+  add(new T.BoxGeometry(.5,12,.5),M(C.steel,{metalness:.5,roughness:.5}),x,6,-14.4);
+  const truss=add(new T.BoxGeometry(.3,.5,32),M(C.metal,{metalness:.5}),x,12,-1,scene,false);
+  for(let z=-15;z<=13;z+=2.8){const d=add(new T.BoxGeometry(.12,1.6,.12),M(C.metal),x,11.3,z,scene,false);d.rotation.x=.6}
+  add(new T.BoxGeometry(.3,.3,32),M(C.metal),x,10.6,-1,scene,false);
 }
-function mover(){return el('g',{class:'mover',style:'opacity:0'})}
-const pkg=mover();
-const pr=el('rect',{x:-22,y:-16,width:44,height:32,rx:7,fill:C.amber},pkg);
-const pt=el('text',{x:0,y:5,'text-anchor':'middle','font-size':11,'font-weight':700,fill:C.ink,'font-family':'Inter,system-ui,sans-serif'},pkg);
-function setPkg(txt,color){pt.textContent=txt;pr.setAttribute('fill',color)}
-function put(e,x,y,vis=1,rot=0){e.style.transition='none';e.style.transform=`translate(${x}px,${y}px) rotate(${rot}deg)`;e.style.opacity=vis;e.getBoundingClientRect()}
-function go(e,x,y,ms=1200,rot=0){e.style.transition=`transform ${ms/speed}ms ease-in-out, opacity .3s`;e.style.transform=`translate(${x}px,${y}px) rotate(${rot}deg)`;return sleep(ms)}
-function zettel(sym){
-  const z=mover();
-  el('rect',{x:-13,y:-10,width:26,height:20,rx:3,fill:'#f4f0d8'},z);
-  el('line',{x1:-8,y1:-3,x2:8,y2:-3,stroke:'#b9b28a','stroke-width':1.5},z);
-  const t=el('text',{x:0,y:7,'text-anchor':'middle','font-size':10,'font-weight':700,fill:C.ink,'font-family':'Inter,sans-serif'},z);t.textContent=sym;
-  return z;
+// Rohre an der Wand
+[[7.2,0x3a3e6a,.22],[7.8,0xb85a2a,.16],[8.3,0x3a3e6a,.12]].forEach(([y,c,r])=>{const p=add(new T.CylinderGeometry(r,r,50,12),M(c,{metalness:.6,roughness:.4}),0,y,-14.3,scene,false);p.rotation.z=Math.PI/2});
+// Paletten-Stapel
+function crates(x,z,n){for(let i=0;i<n;i++){const s=.9+Math.random()*.4;add(new T.BoxGeometry(s,s,s),M(0x8a6a48,{roughness:.9}),x+(i%2)*1.2,s/2+Math.floor(i/2)*1.05,z+(i%3)*0.3)}}
+crates(-20,-9,5);crates(18,-10,6);crates(20,6,3);
+// Bodenmarkierungen
+[[ -1.25],[ 4.45]].forEach(([z])=>{const s=add(new T.PlaneGeometry(22,.22),new T.MeshBasicMaterial({map:hazardTex}),0,.012,z,scene,false);s.rotation.x=-Math.PI/2});
+
+// ---------- Fließband ----------
+const BELT_Y=1.0,LANE_A=0,LANE_B=3.2,X0=-9.4,X1=9.4;
+function belt(z,tex){
+  add(new T.BoxGeometry(X1-X0+.4,.7,1.7),M(0x2a2c55,{metalness:.5,roughness:.5}),0,.62,z);
+  const s=add(new T.BoxGeometry(X1-X0,.06,1.35),new T.MeshStandardMaterial({map:tex,roughness:.8}),0,BELT_Y,z);
+  [-.82,.82].forEach(dz=>add(new T.BoxGeometry(X1-X0+.4,.14,.08),M(0xffd84a,{metalness:.3,roughness:.5}),0,BELT_Y+.06,z+dz));
+  for(let x=X0+.6;x<X1;x+=3)[-.7,.7].forEach(dz=>add(new T.BoxGeometry(.14,.6,.14),M(C.steel,{metalness:.6}),x,.3,z+dz));
+  for(let x=X0+.2;x<=X1;x+=.9){const r=add(new T.CylinderGeometry(.09,.09,1.5,10),M(0x6a70b0,{metalness:.8,roughness:.3}),x,.86,z,scene,false);r.rotation.x=Math.PI/2}
 }
-async function note(from,to,sym,ms=1100){
-  const z=zettel(sym);put(z,from.x,from.y-40,1,-8);
-  await go(z,to.x,to.y-40,ms,8);z.style.opacity=0;setTimeout(()=>z.remove(),400);
+belt(LANE_A,beltTop);belt(LANE_B,beltBack);
+add(new T.BoxGeometry(1.8,.7,LANE_B+1.7),M(0x2a2c55,{metalness:.5,roughness:.5}),X1+1,.62,LANE_B/2);
+add(new T.BoxGeometry(1.5,.06,LANE_B+1.4),new T.MeshStandardMaterial({map:beltTurn,roughness:.8}),X1+1,BELT_Y,LANE_B/2);
+// Leuchtbalken unter den Bändern (Neon)
+[LANE_A,LANE_B].forEach((z,i)=>add(new T.BoxGeometry(X1-X0,.05,.05),glow(i?C.violet:C.orange,2.2),0,.3,z+.86,scene,false));
+
+// ---------- Lampen ----------
+function lamp(x,z,color=0xffd9a0){
+  add(new T.CylinderGeometry(.02,.02,2.6,6),M(0x111111),x,9.7,z,scene,false);
+  const shade=add(new T.ConeGeometry(.75,.55,24,1,true),M(0x2c2f5a,{metalness:.7,roughness:.35,side:T.DoubleSide}),x,8.2,z,scene,false);
+  add(new T.SphereGeometry(.2,16,12),glow(color,3),x,7.95,z,scene,false);
+  const l=new T.PointLight(color,1.25,13,1.6);l.position.set(x,7.6,z);scene.add(l);
+  const cone=add(new T.ConeGeometry(2.6,7.6,32,1,true),new T.MeshBasicMaterial({color,transparent:true,opacity:.045,depthWrite:false,side:T.DoubleSide}),x,4.1,z,scene,false);
 }
-const chipsEl=document.getElementById('chips');
-const stages=['1 Aufgabe → Fable','2 Sonnet: Entwurf','3 Opus: Feinschliff','4 Fable: Abnahme','5 PR → Orchestrator'];
+lamp(-10.6,1.6);lamp(-3,-.8);lamp(4,-.8);lamp(10.4,1.6,0xbfc6ff);
+
+// ---------- Licht ----------
+scene.add(new T.HemisphereLight(0x5a66c8,0x0d0d20,.35));
+const moon=new T.DirectionalLight(0x9aa6ff,.75);moon.position.set(-8,16,-12);moon.castShadow=true;
+moon.shadow.mapSize.set(2048,2048);Object.assign(moon.shadow.camera,{left:-22,right:22,top:16,bottom:-16,near:1,far:50});moon.shadow.bias=-.0005;
+scene.add(moon);
+const fill=new T.DirectionalLight(0xffc89a,.35);fill.position.set(10,10,14);scene.add(fill);
+
+// ---------- Leitstand des Orchestrators ----------
+const BOOTH={x:0,y:4.2,z:-9.2};
+add(new T.BoxGeometry(7.4,.3,3.6),M(0x2a2c55,{metalness:.5}),BOOTH.x,BOOTH.y,BOOTH.z);
+[[-3.4,-1.5],[3.4,-1.5],[-3.4,1.5],[3.4,1.5]].forEach(([dx,dz])=>add(new T.CylinderGeometry(.14,.14,BOOTH.y,10),M(C.steel,{metalness:.7}),BOOTH.x+dx,BOOTH.y/2,BOOTH.z+dz));
+add(new T.BoxGeometry(7.4,.14,.14),new T.MeshStandardMaterial({map:hazardTex,roughness:.6}),BOOTH.x,BOOTH.y+1.05,BOOTH.z+1.75);
+for(let dx=-3.6;dx<=3.6;dx+=1.2)add(new T.BoxGeometry(.06,1,.06),M(C.steel),BOOTH.x+dx,BOOTH.y+.6,BOOTH.z+1.75);
+for(let i=0;i<9;i++)add(new T.BoxGeometry(1.1,.16,.5),M(0x34376a,{metalness:.5}),BOOTH.x+4.3+i*.0,(i+1)*.44,BOOTH.z+1.4-i*.42+3.4);
+add(new T.BoxGeometry(3,.9,.9),M(0x23254c,{metalness:.4}),BOOTH.x,BOOTH.y+.6,BOOTH.z-.4);
+[-1.9,0,1.9].forEach((dx,i)=>{
+  const s=add(new T.PlaneGeometry(1.7,1.05),new T.MeshBasicMaterial({map:screenTex(['#ffd84a','#3dffa0','#c58bff'][i])}),BOOTH.x+dx,BOOTH.y+1.9,BOOTH.z-1.55,scene,false);
+  s.rotation.y=-dx*.12;
+  add(new T.BoxGeometry(1.8,1.15,.08),M(0x101129),BOOTH.x+dx,BOOTH.y+1.9,BOOTH.z-1.6,scene,false).rotation.y=-dx*.12;
+});
+const boothLight=new T.PointLight(0xffd84a,.9,8,2);boothLight.position.set(BOOTH.x,BOOTH.y+2,BOOTH.z);scene.add(boothLight);
+
+// ---------- Figuren ----------
+function starEmblem(color,parent,y,z){
+  const g=new T.Group();g.position.set(0,y,z);parent.add(g);
+  for(let i=0;i<4;i++){const b=add(new T.BoxGeometry(.3,.045,.02),glow(color,2.2),0,0,0,g,false);b.rotation.z=i*Math.PI/4}
+  return g;
+}
+const bots={};
+function makeBot(key,o){
+  const g=new T.Group();g.position.set(o.x,o.y||0,o.z);g.rotation.y=o.rot||0;scene.add(g);
+  const skin=M(C.clay,{roughness:.55});const hatM=M(o.color,{roughness:.35,metalness:.2});
+  [-.17,.17].forEach(dx=>add(new T.CapsuleGeometry(.13,.28,6,12),M(0x2b2d55),dx,.3,0,g));
+  const body=add(new T.CapsuleGeometry(.42,.45,8,20),skin,0,1.0,0,g);
+  add(new T.CylinderGeometry(.44,.44,.12,24),M(o.color,{roughness:.5}),0,.72,0,g); // Gürtel
+  starEmblem(o.color,g,1.12,.42);
+  const arms=[-1,1].map(s=>{const p=new T.Group();p.position.set(.5*s,1.38,0);g.add(p);add(new T.CapsuleGeometry(.1,.42,6,10),skin,0,-.3,0,p);p.rotation.z=.18*s;return p});
+  const head=new T.Group();head.position.set(0,1.95,0);g.add(head);
+  add(new T.SphereGeometry(.38,28,20),skin,0,0,0,head);
+  const visor=add(new T.SphereGeometry(.3,24,16),M(0x0e0f26,{roughness:.2,metalness:.6}),0,-.02,.18,head);visor.scale.set(1,.68,.62);
+  const eyes=[-1,1].map(s=>add(new T.SphereGeometry(.055,12,10),glow(o.color,2.6),.11*s,0,.38,head,false));
+  add(new T.SphereGeometry(.42,28,14,0,Math.PI*2,0,Math.PI/2),hatM,0,.1,0,head);
+  add(new T.CylinderGeometry(.5,.5,.04,28),hatM,0,.1,.04,head);
+  add(new T.BoxGeometry(.08,.12,.5),hatM,0,.5,0,head);
+  if(o.headset){const ring=add(new T.TorusGeometry(.4,.035,8,24,Math.PI),M(0x222244),0,.05,0,head);ring.rotation.y=Math.PI/2;
+    add(new T.CylinderGeometry(.03,.03,.32,8),M(0x222244),.32,-.22,.2,head).rotation.x=1.2;add(new T.SphereGeometry(.06,10,8),glow(C.amber,2),.3,-.3,.34,head,false)}
+  const ring=add(new T.RingGeometry(.95,1.12,48),new T.MeshBasicMaterial({color:o.color,transparent:true,opacity:.75}),0,.02,0,g,false);ring.rotation.x=-Math.PI/2;
+  // Overlay
+  const tag=document.createElement('div');tag.className='tag';tag.style.setProperty('--c',hexCss(o.color));
+  tag.innerHTML=`<span class="n">${o.name}</span><span class="r">${o.role}</span><span class="bar"><i></i></span>`;labels.appendChild(tag);
+  const bubble=document.createElement('div');bubble.className='bubble';labels.appendChild(bubble);
+  const b={key,g,head,arms,eyes,ring,tag,bar:tag.querySelector('i'),role:tag.querySelector('.r'),bubble,state:'idle',phase:Math.random()*6,base:o.role,look:null};
+  bots[key]=b;return b;
+}
+const orch=makeBot('orch',{name:'Orchestrator',role:'Leitstand',color:C.amber,x:BOOTH.x,y:BOOTH.y+.15,z:BOOTH.z+.6,headset:true});
+const fable=makeBot('fable',{name:'Fable',role:'liest · prüft ab',color:C.violet,x:-11.2,z:1.6,rot:Math.PI/2});
+const sonnet=makeBot('sonnet',{name:'Sonnet',role:'erster Entwurf',color:C.green,x:-3,z:-1.9});
+const opus=makeBot('opus',{name:'Opus',role:'Feinschliff',color:C.orange,x:4,z:-1.9});
+orch.g.scale.setScalar(1.15);
+
+// ---------- Paket ----------
+const pkg=new T.Group();scene.add(pkg);pkg.visible=false;
+const pkgMat=M(C.amber,{roughness:.45,emissive:C.amber,emissiveIntensity:.25});
+const crate=add(new T.BoxGeometry(.72,.56,.72),pkgMat,0,0,0,pkg);
+const edges=new T.LineSegments(new T.EdgesGeometry(crate.geometry),new T.LineBasicMaterial({color:0x14152e}));pkg.add(edges);
+add(new T.BoxGeometry(.74,.06,.2),M(0x14152e),0,.26,0,pkg,false);
+const pkgLabel=document.createElement('div');pkgLabel.className='pkg';labels.appendChild(pkgLabel);pkgLabel.style.display='none';
+function setPkg(txt,color){pkgLabel.textContent=txt;pkgLabel.style.setProperty('--c',hexCss(color));pkgMat.color.setHex(color);pkgMat.emissive.setHex(color)}
+
+// ---------- Zettel (Papierflieger) ----------
+const planeGeo=new T.BufferGeometry();
+planeGeo.setAttribute('position',new T.Float32BufferAttribute([0,0,.32, -.22,0,-.18, 0,.02,-.12, 0,0,.32, 0,.02,-.12, .22,0,-.18, 0,0,.32, 0,.02,-.12, 0,-.1,-.16],3));
+planeGeo.computeVertexNormals();
+const notes=[];
+
+// ---------- Zeitsteuerung ----------
+let paused=false,speed=1,sim=0,follow=true;
+const tasks=[];
+const tween=(dur,fn,ease=e=>e<.5?2*e*e:1-Math.pow(-2*e+2,2)/2)=>new Promise(res=>{tasks.push({t:0,dur,fn,ease,res});fn(0)});
+const sleep=s=>tween(s,()=>{});
+const V=(x,y,z)=>new T.Vector3(x,y,z);
+function moveLin(obj,to,dur){const from=obj.position.clone();return tween(dur,p=>obj.position.lerpVectors(from,to,p),e=>e)}
+function arc(obj,to,dur,h=3){const from=obj.position.clone();const mid=from.clone().lerp(to,.5);mid.y=Math.max(from.y,to.y)+h;const c=new T.QuadraticBezierCurve3(from,mid,to);return tween(dur,p=>obj.position.copy(c.getPoint(p)))}
+function headPos(b){const v=new T.Vector3();b.head.getWorldPosition(v);return v}
+async function say(b,text,dur=1.6){b.bubble.textContent=text;b.bubble.classList.add('show');await sleep(dur);b.bubble.classList.remove('show')}
+async function work(b,dur,label){
+  b.state='work';b.role.textContent=label;
+  await tween(dur,p=>{b.bar.style.width=(p*100).toFixed(1)+'%'},e=>e);
+  b.state='idle';b.role.textContent=b.base;b.bar.style.width='0';
+}
+async function note(from,to,sym){
+  const m=new T.Mesh(planeGeo,new T.MeshStandardMaterial({color:0xf6f3e6,side:T.DoubleSide,roughness:.8}));m.castShadow=true;scene.add(m);
+  const tagEl=document.createElement('div');tagEl.className='note';tagEl.textContent=sym;labels.appendChild(tagEl);
+  const a=headPos(from).add(V(0,.6,0)),b=headPos(to).add(V(0,.6,0));m.position.copy(a);
+  const n={m,tagEl};notes.push(n);
+  const mid=a.clone().lerp(b,.5);mid.y+=2.2;const c=new T.QuadraticBezierCurve3(a,mid,b);
+  await tween(2,p=>{const pt=c.getPoint(p),nx=c.getPoint(Math.min(1,p+.02));m.position.copy(pt);m.lookAt(nx);m.rotateZ(Math.sin(p*9)*.4)});
+  scene.remove(m);tagEl.remove();notes.splice(notes.indexOf(n),1);
+}
+
+// ---------- UI ----------
+const chipsEl=document.getElementById('chips'),logEl=document.getElementById('log'),clockEl=document.getElementById('clock');
+const stages=['Aufgabe → Fable','Sonnet: Entwurf','Opus: Feinschliff','Fable: Abnahme','PR → Orchestrator'];
 stages.forEach(s=>{const c=document.createElement('span');c.className='chip';c.textContent=s;chipsEl.appendChild(c)});
-function stage(i){[...chipsEl.children].forEach((c,j)=>{c.className='chip'+(j<i?' done':j===i?' on':'')})}
-const logEl=document.getElementById('log');
-function log(t){const li=document.createElement('li');li.textContent=t;logEl.prepend(li);while(logEl.children.length>8)logEl.lastChild.remove()}
+function stage(i){[...chipsEl.children].forEach((c,j)=>c.className='chip'+(j<i?' done':j===i?' on':''))}
+function stamp(){const m=Math.floor(sim/60),s=Math.floor(sim%60);return String(22+Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')+':'+String(s).padStart(2,'0')}
+function log(who,text){const li=document.createElement('li');li.innerHTML=`${stamp()} <b>${who}</b> ${text}`;logEl.prepend(li);while(logEl.children.length>6)logEl.lastChild.remove()}
 
+const FOCUS={booth:V(0,3,-6),fable:V(-8,1.3,1.6),sonnet:V(-3,1.3,-.4),opus:V(4,1.3,-.4),back:V(1,1.3,2),all:V(0,2,-2)};
+let focus=FOCUS.all.clone();
+const P=(x,z)=>V(x,BELT_Y+.31,z);
+let n=0;
 async function cycle(){
-  n++;
-  stage(0);log(`Orchestrator legt Aufgabe #${n} aufs Band`);
-  setPkg('Aufgabe',C.amber);put(pkg,480,150,0);await sleep(50);
-  pkg.style.opacity=1;await go(pkg,170,300,1500);
-  log('Fable liest die Anfrage');await say(fable,'Ich lese die Anfrage …',1700);
+  n++;stage(0);focus=FOCUS.booth;
+  setPkg('Aufgabe #'+n,C.amber);pkg.position.set(BOOTH.x,BOOTH.y+1.2,BOOTH.z+1.6);pkg.visible=true;pkgLabel.style.display='';
+  log('Orchestrator','legt Aufgabe #'+n+' aufs Band');
+  await say(orch,'Neue Aufgabe für Fable!',1.3);
+  focus=FOCUS.fable;await arc(pkg,P(X0+.5,LANE_A),2.4,3.5);
+  log('Fable','liest die Anfrage');
+  fable.look=pkg;await work(fable,2,'liest …');await say(fable,'Verstanden. Ab zu Sonnet.',1.3);
 
-  stage(1);log('Fable reicht die Aufgabe an Sonnet');
-  await go(pkg,340,300,1500);setPkg('Entwurf',C.green);
-  const w1=work(sonnet,3200);
-  await sleep(1000);log('Sonnet schickt einen Zettel: Frage an den Orchestrator');
-  await note(sonnet,orch,'?');await say(orch,'Nimm Variante B',1300);
-  log('Orchestrator antwortet per Zettel');await note(orch,sonnet,'B');await w1;
+  stage(1);focus=FOCUS.sonnet;log('Fable','reicht die Aufgabe an Sonnet');
+  await moveLin(pkg,P(-3,LANE_A),2.6);setPkg('Entwurf #'+n,C.green);
+  const w1=work(sonnet,4.4,'schreibt Entwurf …');
+  await sleep(1.1);log('Sonnet','schickt einen Zettel mit einer Frage');
+  focus=FOCUS.all;await note(sonnet,orch,'?');
+  await say(orch,'Nimm Variante B.',1.3);log('Orchestrator','antwortet per Zettel');
+  await note(orch,sonnet,'B');focus=FOCUS.sonnet;await w1;
 
-  stage(2);log('Sonnet gibt den Entwurf an Opus');
-  await go(pkg,570,300,1500);setPkg('Final',C.orange);
-  const w2=work(opus,3000);
-  await sleep(800);log('Orchestrator schickt einen Zettel an Opus: Hinweis zur Frist');
-  await note(orch,opus,'!');await w2;
+  stage(2);focus=FOCUS.opus;log('Sonnet','gibt den Entwurf an Opus');
+  await moveLin(pkg,P(4,LANE_A),2.6);setPkg('Final #'+n,C.orange);
+  const w2=work(opus,4,'Feinschliff …');
+  await sleep(.9);log('Orchestrator','schickt einen Hinweis-Zettel an Opus');
+  await note(orch,opus,'!');await say(opus,'Notiert.',1);await w2;
 
-  stage(3);log('Opus gibt zurück an Fable');
-  await go(pkg,770,300,1300);await go(pkg,770,372,500);await go(pkg,170,372,2200);
-  log('Fable macht die Prüfabnahme');await say(fable,'Prüfe die Abnahme …',1600);await say(fable,'Abgenommen ✓',1000);
+  stage(3);focus=FOCUS.back;log('Opus','gibt das Ergebnis zurück an Fable');
+  await moveLin(pkg,P(X1+1,LANE_A),2);await moveLin(pkg,P(X1+1,LANE_B),1.4);
+  focus=FOCUS.fable;await moveLin(pkg,P(X0+.5,LANE_B),5.2);
+  log('Fable','macht die Prüfabnahme');
+  await work(fable,2.2,'prüft ab …');await say(fable,'Abgenommen ✓',1.1);
 
-  stage(4);setPkg('PR',C.violet);log('Fable bündelt alles und schickt einen Pull Request');
-  await go(pkg,480,150,1900);log(`Orchestrator: PR #${n} gemergt ✓`);await say(orch,`PR #${n} gemergt ✓`,1800);
-  pkg.style.opacity=0;[...chipsEl.children].forEach(c=>c.className='chip done');await sleep(1200);
+  stage(4);focus=FOCUS.booth;setPkg('PR #'+n,C.violet);log('Fable','bündelt alles in einen Pull Request');
+  await arc(pkg,V(BOOTH.x,BOOTH.y+1.2,BOOTH.z+1.6),2.6,4.5);
+  log('Orchestrator','merged PR #'+n);await say(orch,'PR #'+n+' gemergt ✓',1.8);
+  pkg.visible=false;pkgLabel.style.display='none';fable.look=null;
+  [...chipsEl.children].forEach(c=>c.className='chip done');focus=FOCUS.all;await sleep(1.6);
 }
-async function loop(){while(true){await cycle()}}
+(async()=>{while(true)await cycle()})();
 
-const playBtn=document.getElementById('play'),app=document.getElementById('app');
-function setPaused(p){paused=p;playBtn.textContent=p?'Abspielen':'Pause';app.classList.toggle('paused',p)}
+// ---------- Steuerung ----------
+const playBtn=document.getElementById('play'),followBtn=document.getElementById('follow');
+function setPaused(p){paused=p;playBtn.textContent=p?'Abspielen':'Pause'}
 playBtn.addEventListener('click',()=>setPaused(!paused));
+followBtn.addEventListener('click',()=>{follow=!follow;followBtn.setAttribute('aria-pressed',String(follow))});
 document.getElementById('speed').addEventListener('change',e=>{speed=parseFloat(e.target.value)});
-if(window.matchMedia('(prefers-reduced-motion:reduce)').matches)setPaused(true);
-loop();
+controls.addEventListener('start',()=>{if(follow){follow=false;followBtn.setAttribute('aria-pressed','false')}});
+if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)setPaused(true);
+
+// ---------- Rendern ----------
+function resize(){
+  const w=canvas.clientWidth,h=canvas.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
+}
+const narrow=()=>canvas.clientWidth/canvas.clientHeight<1;
+resize();
+camera.position.copy(narrow()?V(2,20,36):V(3,9.5,18));
+controls.target.copy(FOCUS.all);
+window.addEventListener('resize',resize);
+const tmp=new T.Vector3();
+function screen(v){tmp.copy(v).project(camera);return{x:(tmp.x+1)/2*canvas.clientWidth,y:(1-tmp.y)/2*canvas.clientHeight,on:tmp.z<1&&tmp.z>-1}}
+function place(el,v,dy=0){const s=screen(v);el.style.left=s.x+'px';el.style.top=(s.y+dy)+'px';el.style.visibility=s.on?'visible':'hidden'}
+let last=performance.now();
+function frame(now){
+  let dt=Math.min(.05,(now-last)/1000);last=now;
+  if(!paused){
+    const d=dt*speed;sim+=d;
+    for(let i=tasks.length-1;i>=0;i--){const k=tasks[i];k.t+=d;const p=Math.min(1,k.t/k.dur);k.fn(k.ease(p));if(p>=1){tasks.splice(i,1);k.res()}}
+    beltTop.offset.x-=d*.55;beltBack.offset.x+=d*.55;beltTurn.offset.y+=d*.4;
+    Object.values(bots).forEach(b=>{
+      const t=sim+b.phase;
+      b.g.children[2]; // Körper bleibt
+      b.head.position.y=1.95+Math.sin(t*2)*.025;
+      if(b.state==='work'){b.arms[0].rotation.x=Math.sin(t*9)*.7-.6;b.arms[1].rotation.x=Math.cos(t*9)*.7-.6;b.head.rotation.x=.18}
+      else{b.arms[0].rotation.x*=.9;b.arms[1].rotation.x*=.9;b.head.rotation.x*=.9}
+      const blink=(t%4.2)<.12?.15:1;b.eyes.forEach(e=>e.scale.y=blink);
+      b.ring.material.opacity=b.state==='work'?.55+Math.sin(t*6)*.35:.6;
+      // Kopf zum Paket drehen
+      if(pkg.visible&&pkg.position.distanceTo(b.g.position)<7){
+        const lp=b.g.worldToLocal(pkg.position.clone());const yaw=Math.atan2(lp.x,lp.z);b.head.rotation.y+= (Math.max(-1,Math.min(1,yaw))-b.head.rotation.y)*.08;
+      }else b.head.rotation.y*=.95;
+    });
+    pkg.rotation.y=Math.sin(sim*1.3)*.05;
+    clockEl.textContent=stamp().slice(0,5);
+  }
+  if(follow)controls.target.lerp(focus,.025);
+  controls.update();
+  renderer.render(scene,camera);
+  Object.values(bots).forEach(b=>{const hp=headPos(b);place(b.tag,hp.clone().add(V(0,-2.05*b.g.scale.y,0)),6);place(b.bubble,hp.clone().add(V(0,.75*b.g.scale.y,0)))});
+  if(pkg.visible)place(pkgLabel,pkg.position.clone().add(V(0,.45,0)),-4);
+  notes.forEach(k=>place(k.tagEl,k.m.position.clone().add(V(0,.35,0))));
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
 </script>

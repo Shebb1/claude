@@ -10,4 +10,4 @@ Zeichnen nur Desktop- und Mobile-Client, nicht das Terminal.
 ## Dateien
 - `hooks/register.tsx`: das Theme
 - `previews/theme-vorschau.html`: Farbvorschau hell/dunkel
-- `previews/fliessband-entwurf.html`: Entwurf für ein aktives Design (Orchestrator, Fable, Sonnet, Opus am Fließband). Noch nicht Teil des Themes.
+- `previews/fliessband-entwurf.html`: 3D-Entwurf (three.js) einer Fabrikhalle mit Orchestrator, Fable, Sonnet und Opus am Fließband. Noch nicht Teil des Themes.
