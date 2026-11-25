@@ -297,7 +297,14 @@ function trip(from, to, elapsed = 0) {
   const path = ahead ? run(s0, s1) : run(s0, PATH.L) + ' ' + run(0, s1)
   const len = ahead ? s1 - s0 : PATH.L - s0 + s1
   // To a station: brisk. The last ride into the chat: at the belt's own pace.
-  const dur = to > 5 ? Math.max(2.5, len / 2.2) : Math.max(0.8, Math.min(4.5, len / 3.2))
+  if (to > 5) {
+    // The last ride starts when the answer lands, and the app shows that frame
+    // late: timed by the clock it would open near the end and seem to jump. So
+    // it starts when it is shown, rests a moment at the station, then rolls out.
+    const hold = 0.7, total = hold + Math.max(2.5, len / 2.2)
+    return { dur: total, final: true, svg: `<animateMotion begin="0s" dur="${total.toFixed(2)}s" fill="freeze" calcMode="linear" keyPoints="0;0;1" keyTimes="0;${(hold / total).toFixed(3)};1" path="${path}"/>` }
+  }
+  const dur = Math.max(0.8, Math.min(4.5, len / 3.2))
   // A negative begin resumes a trip already under way: a redraw never restarts it.
   return { dur, svg: `<animateMotion begin="${(-elapsed).toFixed(2)}s" dur="${dur.toFixed(2)}s" fill="freeze" calcMode="paced" path="${path}"/>` }
 }
@@ -708,12 +715,13 @@ export function renderScene(state, design, note = '', mode = '', now = 0) {
     // redraw picks it up where it is. Without a clock (a preview) it starts fresh.
     const elapsed = state.moving && state.movedAt && now ? Math.max(0, (now - state.movedAt) / 1000) : 0
     const t = state.moving ? trip(state.from, state.pkg, elapsed) : { svg: '', dur: 0 }
-    const live = state.moving && t.dur > 0 && elapsed < t.dur + 0.6
+    // The last ride plays from its start whenever it is shown, for a minute.
+    const live = state.moving && t.dur > 0 && elapsed < (t.final ? 60 : t.dur + 0.6)
     if (state.pkg >= 0 && (state.pkg <= 5 || live)) {
       const end = state.pkg > 5 ? { x: XS, d: Y1 } : { x: ST[state.pkg].bx, d: ST[state.pkg].bd }
       let g = pkgSvg(st, end, state.stamps, col)
       if (live) g += t.svg
-      if (state.pkg > 5) g += `<animate attributeName="opacity" from="1" to="0" begin="${(t.dur - 0.3 - elapsed).toFixed(2)}s" dur="0.5s" fill="freeze"/>`
+      if (state.pkg > 5) g += `<animate attributeName="opacity" from="1" to="0" begin="${(t.dur - 0.3).toFixed(2)}s" dur="0.5s" fill="freeze"/>`
       const svg = `<g${st.pkg.filter ? ` filter="url(#${k}-${st.pkg.filter})"` : ''}>${g}</g>`
       if (live) riding = svg
       else items.push({ d: end.d - 0.3, x: end.x, svg })

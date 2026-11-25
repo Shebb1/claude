@@ -211,25 +211,8 @@ export const register: Register = on => {
     return started
   })
 
-  // Every tool call shows in the bubble of whoever makes it.
-  on('tool.call', async ($, e, next) => {
-    const tool = String(e.tool)
-    const id = e.agentId
-
-    await safely($, s => {
-      const known = id !== undefined && s.workers.some(w => w.id === id)
-
-      // Only a changed bubble redraws: a redraw restarts the SVG's animations.
-      if (id === undefined) {
-        return s.orchTool === tool ? s : { ...s, orchTool: tool }
-      }
-      const same = !known || s.workers.some(w => w.id === id && w.tool === tool)
-
-      return same ? s : { ...s, workers: worker(s, id, w => ({ ...w, tool })) }
-    })
-
-    return next(e)
-  })
+  // Tool calls are not drawn: every change reloads the drawing, and a reload
+  // per tool made it stutter. A plate says what its figure's job is instead.
 
   // A turn ends. A subagent's: its station is done and stamps the package.
   // The main loop's: the answer is in the chat already, and the package rides
