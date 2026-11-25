@@ -29,7 +29,7 @@ test('a message puts the package at the planners, the picker switches designs', 
   await $.turn.start({ text: 'Bau die Halle um', turnId: 't1' })
 
   const term = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await term.find({ type: 'Text', text: /Halle 3:/ }))?.text).toBe('Halle 3: Auftrag bei Fable (plant den Auftrag). Es arbeiten: Fable.')
+  expect((await term.find({ type: 'Text', text: /Halle 3:/ }))?.text).toBe('Halle 3: Auftrag bei Fable (glänzt). Es arbeiten: Fable.')
   await term.unmount()
 
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })

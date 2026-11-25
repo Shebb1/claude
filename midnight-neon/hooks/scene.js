@@ -690,6 +690,11 @@ function logSvg(st, log) {
 }
 
 // Which stations work right now, and what each one says.
+// What a model does when it is used directly, with no playbook around it.
+const SOLO = { fable: 'glänzt', opus: 'führt aus', sonnet: 'kümmert sich', haiku: 'setzt um' }
+// The words on the working station's plate: in a playbook its role there,
+// on a direct job what that model does on its own.
+const soloText = state => (state.playbook ? '' : SOLO[ST[state.pkg].m] || '')
 function activity(state) {
   const active = new Map(), counts = new Map()
   for (const w of state.workers) {
@@ -697,7 +702,7 @@ function activity(state) {
     counts.set(w.station, (counts.get(w.station) || 0) + 1)
     if (!active.has(w.station) || w.tool) active.set(w.station, w.tool)
   }
-  if (state.phase === 'work' && active.size === 0 && state.pkg >= 0 && state.pkg <= 5) active.set(state.pkg, state.orchTool)
+  if (state.phase === 'work' && active.size === 0 && state.pkg >= 0 && state.pkg <= 5) active.set(state.pkg, soloText(state))
   return { active, counts }
 }
 
@@ -760,7 +765,7 @@ export function renderScene(state, design, note = '', mode = '', now = 0) {
 export function describeScene(state) {
   if (state.phase === 'idle') return 'Halle 3: Das Band steht, kein Auftrag.'
   const { active } = activity(state)
-  const where = state.pkg < 0 ? 'am Chat' : state.pkg > 5 ? 'zurück im Chat' : `bei ${ST[state.pkg].name} (${ST[state.pkg].role})`
+  const where = state.pkg < 0 ? 'am Chat' : state.pkg > 5 ? 'zurück im Chat' : `bei ${ST[state.pkg].name} (${soloText(state) || ST[state.pkg].role})`
   const busy = [...active.keys()].map(i => ST[i].name).join(', ')
   return `Halle 3: Auftrag ${where}.` + (busy ? ` Es arbeiten: ${busy}.` : '') + (state.phase === 'done' ? ' Fertig.' : state.phase === 'stopped' ? ' Abgebrochen.' : '')
 }
